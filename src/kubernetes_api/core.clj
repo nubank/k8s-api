@@ -11,7 +11,7 @@
   [& args]
   (println "Hello, World!"))
 
-(defn- new-ssl-engine [ca-cert client-cert client-key]
+(defn- new-ssl-engine [{:keys [ca-cert client-cert client-key]}]
   (-> (ssl/ssl-context client-key client-cert ca-cert)
       ssl/ssl-context->engine))
 
@@ -37,13 +37,30 @@
 
 (defn fix-swagger [swagger]
   (-> swagger
-      fix-description
-      fix-path-params))
+      fix-description))
 
-(defn client-cert-interceptor [ca-cert client-cert client-key]
-  {:name  ::client-certificate
+(defn client-certs? [{:keys [ca-cert client-cert client-key]}]
+  (every? some? [ca-cert client-cert client-key]))
+
+(defn basic-auth? [{:keys [username password]}]
+  (every? some? [username password]))
+
+(defn basic-auth [{:keys [username password]}]
+  (str username ":" password))
+
+(defn token? [{:keys [token]}]
+ (some? token))
+
+(defn request-auth-params [opts]
+  (cond
+    (basic-auth? opts) {:basic-auth (basic-auth opts)}
+    (token? opts) {:oauth-token (:token opts)}
+    (client-certs? opts) {:sslengine (new-ssl-engine opts)}))
+
+(defn auth-interceptor [opts]
+  {:name  ::authentication
    :enter (fn [context]
-            (assoc-in context [:request :sslengine] (new-ssl-engine ca-cert client-cert client-key)))})
+            (update context :request #(merge % (request-auth-params opts))))})
 
 (defn read-swagger []
   (fix-swagger (json/parse-string (slurp "resources/swagger.json") true)))
@@ -57,15 +74,11 @@
        (map #(vector % s/Str))
        (into {})))
 
-
-
 (defn client [host opts]
   (martian/bootstrap-swagger host
                              (read-swagger)
                              {:interceptors (concat martian-httpkit/default-interceptors
-                                                    [(client-cert-interceptor (str home "/ca-docker.crt")
-                                                                              (str home "/client-cert.pem")
-                                                                              (str home "/client-java.key"))])}))
+                                                    [(auth-interceptor opts)])}))
 
 (comment
   (keys (read-swagger))
@@ -75,12 +88,10 @@
 
   (def swag2 )
 
-  (def c (martian/bootstrap-swagger "https://kubernetes.docker.internal:6443"
-                                    (read-swagger)
-                                    {:interceptors (concat martian-httpkit/default-interceptors
-                                                           [(client-cert-interceptor (str home "/ca-docker.crt")
-                                                                                     (str home "/client-cert.pem")
-                                                                                     (str home "/client-java.key"))])}))
+  (def c (client "https://kubernetes.docker.internal:6443"
+                 {:ca-cert     (str home "/ca-docker.crt")
+                  :client-cert (str home "/client-cert.pem")
+                  :client-key  (str home "/client-java.key")}))
 
 
   (def swag (read-swagger))
