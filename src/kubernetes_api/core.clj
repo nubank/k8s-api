@@ -5,8 +5,10 @@
             [schema.core :as s]
             [camel-snake-kebab.core :as csk]
             [less.awful.ssl :as ssl]
+            clojure.data
             clojure.set
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk]
+            [clojure.string :as string]))
 
 
 (defn- new-ssl-engine [{:keys [ca-cert client-cert client-key]}]
@@ -19,10 +21,6 @@
                      (assoc x :summary (:description x))
                      x))
                  swagger))
-
-(defn map-vals [f m]
-  (->> (map (fn [[k v]] [k (f v)]) m)
-       (into {})))
 
 (defn fix-swagger [swagger]
   (-> swagger
@@ -99,14 +97,13 @@
                   {:type (status-code->error-type status)
                    :body body})))
 
-(defn raise-interceptor [opts]
+(defn raise-interceptor [_]
   {:name  ::raise
-   :leave (fn [{:keys [request response] :as context}]
+   :leave (fn [{:keys [request response] :as _context}]
             (if (status-error? (:status response))
               (raise-exception response)
-              (do
-                (with-meta {:response (:body response)}
-                           {:request request :response response}))))})
+              (with-meta {:response (:body response)}
+                         {:request request :response response})))})
 
 (defn read-swagger []
   (fix-swagger (json/parse-string (slurp "resources/swagger.json") true)))
@@ -120,94 +117,85 @@
        (map #(vector % s/Str))
        (into {})))
 
-(defn pascal-case-routes [c]
-  (update c :handlers
+(defn pascal-case-routes [k8s]
+  (update k8s :handlers
           (fn [handlers]
             (mapv #(update % :route-name csk/->PascalCase) handlers))))
 
 (defn client [host opts]
   (pascal-case-routes
-    (martian/bootstrap-swagger host
-                               (read-swagger)
-                               {:interceptors (concat
-                                                [(raise-interceptor opts)
-                                                 (auth-interceptor opts)]
-                                                martian-httpkit/default-interceptors)})))
+    (martian/bootstrap-swagger host (read-swagger) {:interceptors (concat [(raise-interceptor opts)
+                                                                           (auth-interceptor opts)]
+                                                                          martian-httpkit/default-interceptors)})))
 
-(def home "/Users/rafaeleal/.kube")
+(defn handler-kind [handler]
+  (-> handler :swagger-definition :x-kubernetes-group-version-kind :kind keyword))
+
+(defn handler-action [handler]
+  (-> handler :swagger-definition :x-kubernetes-action keyword))
 
 (defn find-action [k8s {:keys [kind action] :as _search-params}]
-  (->> k8s
-       :handlers
+  (->> (:handlers k8s)
        (filter (fn [handler]
-                 (and (or (= kind (-> handler :swagger-definition :x-kubernetes-group-version-kind :kind)) (nil? kind))
-                      (or (= action (-> handler :swagger-definition :x-kubernetes-action)) (nil? action)) )))
+                 (and (or (= (keyword kind) (handler-kind handler)) (nil? kind))
+                      (or (= (keyword action) (handler-action handler)) (nil? action)))))
        (map :route-name)))
+
+(defn entities [k8s]
+  (->> (:handlers k8s)
+       (group-by (comp :x-kubernetes-group-version-kind :swagger-definition))
+       (map (fn [[k v]] [(keyword (:kind k)) (map :route-name v)]))
+       (into {})))
+
+(defn actions [k8s kind]
+  (->> (:handlers k8s)
+       (filter (fn [handler] (= (keyword kind) (handler-kind handler))))
+       (map (comp keyword :x-kubernetes-action :swagger-definition))
+       (remove nil?)
+       set
+       not-empty))
+
+(defn find-preffered-action [k8s search-params]
+  (->> (find-action k8s search-params)
+       (filter (fn [x] (not (string/ends-with? (name x) "Status"))))))
+
 
 
 (comment
-  (keys (read-swagger))
-  (extract-path-parts "/foo/{namespace}/bar/{name}")
 
-  (path-schema "/foo/{namespace}/bar/{name}")
 
-  (def swag2 )
-  (martian.schema/parameter-keys (map err parameter-schemas))
-  (defn clt [ ] (client "https://kubernetes.docker.internal:6443"
-                    {:ca-cert     (str home "/ca-docker.crt")
-                     :client-cert (str home "/client-cert.pem")
-                     :client-key  (str home "/client-java.key")}))
+  (clojure.data/diff {} {:foo 42})
+
+  (def home "/Users/rafaeleal/.kube")
+  (->> (:handlers c)
+       (filter #(= (:route-name %) :ReadApiextensionsV1beta1CustomResourceDefinition))
+       first
+       :swagger-definition
+       :x-kubernetes-group-version-kind)
+
+  (actions c :CustomResourceDefinition)
 
   (def c (client "https://kubernetes.docker.internal:6443"
                  {:ca-cert     (str home "/ca-docker.crt")
                   :client-cert (str home "/client-cert.pem")
                   :client-key  (str home "/client-java.key")}))
 
-  (find-action c {:kind   "Deployment"
-                  :action "get"})
-  (enrich-handler err)
-  (def swag (read-swagger))
-
-  (count (map #'martian/enrich-handler (martian.swagger/swagger->handlers (read-swagger))))
-
-  (keys ((keyword "/apis/batch/v1beta1/watch/namespaces/{namespace}/cronjobs/{name}") (:paths swag)))
-
-  (binding [*print-length* 10]
-    (prn (range 1000)))
- (set! *print-length* nil)
-  (set! *print-level* nil)
-  (:interceptors c)
-  (second (count (:handlers c)))
-
-  (map name (keys (:paths (read-swagger))))
-  (mapcat vals (vals (:paths (read-swagger))))
-
-  (count (:handlers (clt)))
-
-  (new-ssl-engine (str home "/ca-docker.crt")
-                  (str home "/client-cert.pem")
-                  (str home "/client-java.key"))
   (martian/explore c)
-  (martian/explore c :list-core-v1-namespaced-pod)
-  (martian/explore c :PatchAppsV1NamespacedDaemonSet)
-  (martian/request-for c :watch-batch-v-1beta-1-namespaced-cron-job {:namespace "default"})
+
+  (martian/explore c :ReadApiextensionsV1CustomResourceDefinition)
+
+  (entities c)
+
+  (actions c :Pod)
+
+  (find-action c {:kind   :Deployment
+                  :action :get})
+
+  (martian/request-for c :ReadAppsV1NamespacedDeployment {:namespace "default"
+                                                          :name      "nginx-deployment"})
 
 
-(csk/->PascalCase :list_core_v_1_namespaced_pod)
-  (csk/->kebab-case (csk/->PascalCase :watch-batch-v-1beta-1-namespaced-cron-job))
-
-  (martian/request-for c :list-core-v-1-namespaced-pod {:namespace "default"})
   @(martian/response-for c :ListCoreV1NamespacedPod {:namespace "default"})
-
-  (->> @(martian/response-for c :ListCoreV1NamespacedPod {:namespace "default"})
-       :items
-       (map (comp :resourceVersion :metadata)))
-
-
-  (->> @(martian/response-for c :ReadAppsV1NamespacedDeployment {:namespace "default"
-                                                                 :name "nginx-deployment"})
-       ((comp :resourceVersion :metadata)))
-
 
   )
 
@@ -219,22 +207,17 @@
                   :client-cert (str home "/client-cert.pem")
                   :client-key  (str home "/client-java.key")}))
 
-  (require 'kubernetes-api.listeners)
+  (require '[kubernetes-api.listeners :as listeners])
 
-  (def ctx (kubernetes-api.listeners/new-context {:client c}))
+  (def ctx (listeners/new-context {:client c}))
 
-  (kubernetes-api.listeners/schedule-with-delay-seconds (:executer ctx) (fn [] (prn 42)) 2)
-  (kubernetes-api.listeners/register ctx
-                                     {:kind "Deployment"
-                                      :name "nginx-deployment"
-                                      :namespace "default"}
-                                     kubernetes-api.listeners/print-version)
+  (def list-id (listeners/register ctx
+                                   {:kind      "Deployment"
+                                    :name      "nginx-deployment"
+                                    :namespace "default"}
+                                   listeners/print-version))
 
-  (keys ctx)
-  (kubernetes-api.listeners/deregister ctx
-                                       #uuid"72247a69-580f-4b7d-b182-3235460b6b5d")
+  (listeners/deregister ctx list-id)
 
-  (.isCancelled (get-in @(:state ctx) [:listeners #uuid"72247a69-580f-4b7d-b182-3235460b6b5d" :task]))
-
-  (kubernetes-api.listeners/status ctx #uuid"72247a69-580f-4b7d-b182-3235460b6b5d")
+  (listeners/status ctx list-id)
   )

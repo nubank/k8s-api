@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [martian "0.1.12-SNAPSHOT"]
                  [martian-httpkit "0.1.11"]
+                 [io.forward/yaml "1.0.9"]
                  [less-awful-ssl "1.0.4"]]
   :main ^:skip-aot kubernetes-api.core
   :target-path "target/%s"

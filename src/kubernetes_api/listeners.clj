@@ -24,7 +24,7 @@
 (defn status-task [task]
   (cond
     (task-cancelled? task) :cancelled
-    :else :running))
+    :else :registered))
 
 (defn status [{:keys [state] :as context} listener-id]
   (let [listener (get-in @state [:listeners listener-id])]
@@ -54,7 +54,7 @@
     :Deployment :ReadAppsV1NamespacedDeployment))
 
 (defn handler-fn
-  [{:keys [client state] :as context}
+  [{:keys [client state] :as _context}
    {:keys [id kind namespace name]}
    listener-fn]
   (fn []
@@ -67,7 +67,6 @@
       (when (not= current-version new-version)
         (swap! state
                (fn [st]
-                 (prn st)
                  (assoc-in st [:listeners id :version] new-version)))
         (listener-fn resp)))))
 
@@ -81,7 +80,8 @@
              (assoc-in s [:listeners listener-id :task]
                        (schedule-periodic-seconds executer
                                                   (handler-fn context params listener-fn)
-                                                  polling-rate))))))
+                                                  polling-rate))))
+    listener-id))
 
 
 (defn print-version
