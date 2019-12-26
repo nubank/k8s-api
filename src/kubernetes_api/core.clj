@@ -1,6 +1,7 @@
 (ns kubernetes-api.core
   (:require [martian.core :as martian]
             [martian.httpkit :as martian-httpkit]
+            martian.swagger
             [cheshire.core :as json]
             [schema.core :as s]
             [camel-snake-kebab.core :as csk]
@@ -207,29 +208,60 @@
                             :schema (-> crd-version :schema :openAPIV3Schema))
                     "401" {:description "Unauthorized"}}}}))
 
+(defn top-level [extension-api]
+  (str "/apis/" (:api extension-api) "/" (:version extension-api)))
+
+(defn top-resource [extension-api resource-name]
+  (str (top-level extension-api) "/" resource-name))
+
+(defn namespaced-route [extension-api resource-name]
+  (str (top-level extension-api) "/namespaces/{namespace}/" resource-name))
+
+(defn named-route [extension-api resource-name]
+  (str (namespaced-route extension-api resource-name) "/{name}"))
+
 (defn routes [k8s-verb extension-api {resource-name :name :as resource} crd]
-  (let [top-level (str "/apis/" (:api extension-api) "/" (:version extension-api))
-        namespaced "/namespaces/{namespace}/"
-        named "/{name}"]
-    (cond
-      (#{:get :delete :patch :update} (keyword k8s-verb))
-      {(str top-level namespaced resource-name named) (method k8s-verb extension-api crd {})}
+  (cond
+    (#{:get :delete :patch :update} (keyword k8s-verb))
+    {(named-route extension-api resource-name) (method k8s-verb extension-api crd {})}
 
-      (#{:create :deletecollection} (keyword k8s-verb))
-      {(str top-level namespaced resource-name) (method k8s-verb extension-api crd {})}
+    (#{:create :deletecollection} (keyword k8s-verb))
+    {(namespaced-route extension-api resource-name) (method k8s-verb extension-api crd {})}
 
-      (= :watch (keyword k8s-verb))
-      {}                                                    ; TODO: Fix Watch requests
+    (= :watch (keyword k8s-verb))
+    {}                                                      ; TODO: Fix Watch requests
 
-      (= :list (keyword k8s-verb))
-      {(str top-level "/" resource-name) (method k8s-verb extension-api crd {:all-namespaces true})
-       (str top-level namespaced resource-name) (method k8s-verb extension-api crd {})})))
+    (= :list (keyword k8s-verb))
+    {(top-resource extension-api resource-name)        (method k8s-verb extension-api crd {:all-namespaces true})
+     (namespaced-route extension-api resource-name) (method k8s-verb extension-api crd {})}))
+
+(defn add-path-params [extension-api {resource-name :name} paths]
+  (into {}
+        (map (fn [[path methods]]
+               [path (misc/assoc-some methods
+                                 :parameters (cond
+                                               (string/starts-with? (name path) (named-route extension-api resource-name))
+                                               [{:in     "path"
+                                                 :name   "name"
+                                                 :required true
+                                                 :schema {:type "string"}}
+                                                {:in     "path"
+                                                 :name   "namespace"
+                                                 :required true
+                                                 :schema {:type "string"}}]
+                                               (string/starts-with? (name path) (namespaced-route extension-api resource-name))
+                                               [{:in     "path"
+                                                 :name   "namespace"
+                                                 :required true
+                                                 :schema {:type "string"}}]
+                                               :else nil))]) paths)))
 
 (defn single-resource-swagger [extension-api {:keys [verbs] :as resource} crd]
   (->> (mapcat #(routes % extension-api resource crd) verbs)
        (group-by first)
        (misc/map-vals (fn [x] (into {} (map second x))))
-       (into {})))
+       (into {})
+       (add-path-params extension-api resource)))
 
 (defn swagger-from [extention-api
                     {:keys [resources] :as _api-resources}
@@ -243,12 +275,14 @@
                        resources)
                (into {}))})
 
-(defn extend-client [k8s {:keys [api version] :as extention-api}]
+(defn extend-client [k8s {:keys [api version] :as extension-api}]
   (let [api-resources @(martian/response-for k8s :GetArbitraryApiResources
                                              {:api     api
                                               :version version})
         crds @(martian/response-for k8s :ListApiextensionsV1beta1CustomResourceDefinition)]
-    (swagger-from extention-api api-resources crds)))
+    (pascal-case-routes
+      (update k8s
+              :handlers #(concat % (martian.swagger/swagger->handlers (swagger-from extension-api api-resources crds)))))))
 
 (defn handler-kind [handler]
   (-> handler :swagger-definition :x-kubernetes-group-version-kind :kind keyword))
@@ -334,8 +368,8 @@
 
   (martian/explore c)
 
-  (extend-client c {:api "tekton.dev"
-                    :version "v1alpha1"})
+  (def c2 (extend-client c {:api     "tekton.dev"
+                     :version "v1alpha1"}))
 
   (martian/explore c)
 
@@ -358,6 +392,8 @@
 
   (explore-kind c :Deployment)
 
+
+  (explore-kind c2 nil)
   (martian/explore c :ListApiextensionsV1CustomResourceDefinition)
 
   (martian/request-for c :GetApiextensionsV1beta1ApiResources)
