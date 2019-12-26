@@ -8,6 +8,7 @@
             clojure.data
             clojure.set
             [clojure.walk :as walk]
+            [kubernetes-api.misc :as misc]
             [clojure.string :as string]))
 
 
@@ -22,9 +23,36 @@
                      x))
                  swagger))
 
+(def arbitrary-api-resources-route
+  {(keyword "/apis/{api}/{version}/") {:get        {:consumes    ["application/json"
+                                                                  "application/yaml"
+                                                                  "application/vnd.kubernetes.protobuf"]
+                                                    :summary     "get available resources for arbitrary api"
+                                                    :operationId "GetArbitraryAPIResources"
+                                                    :produces    ["application/json"
+                                                                  "application/yaml"
+                                                                  "application/vnd.kubernetes.protobuf"]
+                                                    :responses   {"200" {:description "OK"
+                                                                         :schema      {:$ref "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"}}
+                                                                  "401" {:description "Unauthorized"}}
+                                                    :schemes     ["https"]}
+                                       :parameters [{:in     "path"
+                                                     :name   "api"
+                                                     :schema {:type "string"}}
+                                                    {:in     "path"
+                                                     :name   "version"
+                                                     :schema {:type "string"}}]}})
+
+(defn add-some-routes
+  [swagger new-definitions new-routes]
+  (-> swagger
+      (update :paths #(merge % new-routes))
+      (update :definitions #(merge % new-definitions))))
+
 (defn fix-swagger [swagger]
   (-> swagger
-      fix-description))
+      fix-description
+      (add-some-routes {} arbitrary-api-resources-route)))
 
 (defn client-certs? [{:keys [ca-cert client-cert client-key]}]
   (every? some? [ca-cert client-cert client-key]))
@@ -36,7 +64,7 @@
   (str username ":" password))
 
 (defn token? [{:keys [token]}]
- (some? token))
+  (some? token))
 
 (defn token-fn? [{:keys [token-fn]}]
   (some? token-fn))
@@ -128,6 +156,100 @@
                                                                            (auth-interceptor opts)]
                                                                           martian-httpkit/default-interceptors)})))
 
+
+
+(defn new-route-name
+  [verb group version scope kind {:keys [all-namespaces]}]
+  (letfn [(prefix [k8s-verb]
+            (case k8s-verb
+              "update" "replace"
+              "get" "read"
+              "deletecollection" "delete"
+              k8s-verb))
+          (suffix [k8s-verb]
+            (case k8s-verb
+              "deletecollection" "collection"
+              nil))]
+    (csk/->PascalCase (string/join "_" (->> [(prefix verb)
+                                            group
+                                            version
+                                             (suffix verb)
+                                            (when-not all-namespaces scope)
+                                             (csk/->snake_case kind)
+                                            (when all-namespaces :for_all_namespaces)]
+                                           (remove nil?)
+                                           (map name)))
+                     :separator #"[_\.]")))
+
+
+(def k8s-verb->http-verb
+  {"delete"           "delete"
+   "deletecollection" "delete"
+   "get"              "get"
+   "list"             "get"
+   "patch"            "patch"
+   "create"           "post"
+   "update"           "put"
+   "watch"            "get"})
+
+(defn method [k8s-verb {:keys [api version]} {{:keys [scope versions names]} :spec :as _crd} opts]
+  (let [content-types ["application/json"
+                       "application/yaml"
+                       "application/vnd.kubernetes.protobuf"]
+        crd-version (misc/find-first #(= (:name %) version) versions)]
+    (prn crd-version)
+    {(keyword (k8s-verb->http-verb k8s-verb))
+     {:operationId (new-route-name k8s-verb api version scope (:kind names) opts)
+      :consumes    content-types
+      :produces    content-types
+      :responses   {"200" (misc/assoc-some
+                            {:description "OK"}
+                            :schema (-> crd-version :schema :openAPIV3Schema))
+                    "401" {:description "Unauthorized"}}}}))
+
+(defn routes [k8s-verb extension-api {resource-name :name :as resource} crd]
+  (let [top-level (str "/apis/" (:api extension-api) "/" (:version extension-api))
+        namespaced "/namespaces/{namespace}/"
+        named "/{name}"]
+    (cond
+      (#{:get :delete :patch :update} (keyword k8s-verb))
+      {(str top-level namespaced resource-name named) (method k8s-verb extension-api crd {})}
+
+      (#{:create :deletecollection} (keyword k8s-verb))
+      {(str top-level namespaced resource-name) (method k8s-verb extension-api crd {})}
+
+      (= :watch (keyword k8s-verb))
+      {}                                                    ; TODO: Fix Watch requests
+
+      (= :list (keyword k8s-verb))
+      {(str top-level "/" resource-name) (method k8s-verb extension-api crd {:all-namespaces true})
+       (str top-level namespaced resource-name) (method k8s-verb extension-api crd {})})))
+
+(defn single-resource-swagger [extension-api {:keys [verbs] :as resource} crd]
+  (->> (mapcat #(routes % extension-api resource crd) verbs)
+       (group-by first)
+       (misc/map-vals (fn [x] (into {} (map second x))))
+       (into {})))
+
+(defn swagger-from [extention-api
+                    {:keys [resources] :as _api-resources}
+                    {:keys [items] :as crds}]
+  {:paths (->> (mapcat (fn [resource]
+                         (single-resource-swagger extention-api resource (misc/find-first
+                                                                           (fn [{{:keys [group version names]} :spec}]
+                                                                             (and (= (:api extention-api) group)
+                                                                                  (= (:version extention-api) version)
+                                                                                  (= (:kind resource) (:kind names)))) items)))
+                       resources)
+               (into {}))})
+
+(defn extend-client [k8s {:keys [api version] :as extention-api}]
+  (let [api-resources @(martian/response-for k8s :GetArbitraryApiResources
+                                             {:api     api
+                                              :version version})
+        crds @(martian/response-for k8s :ListApiextensionsV1beta1CustomResourceDefinition)]
+    (swagger-from extention-api api-resources crds)))
+
 (defn handler-kind [handler]
   (-> handler :swagger-definition :x-kubernetes-group-version-kind :kind keyword))
 
@@ -155,18 +277,123 @@
        set
        not-empty))
 
+(def versions ["v2"
+               "v2beta2"
+               "v2beta1"
+               "v2alpha1"
+               "v1"
+               "v1beta1"
+               "v1alpha1"])
+
+
+(defn swagger-definition-for-route [k8s route-name]
+  (->> (:handlers k8s)
+       (misc/find-first #(= route-name (:route-name %)))
+       :swagger-definition))
+
+(defn explore-kind [k8s kind]
+  (->> (martian/explore k8s)
+       (filter (fn [[route-name _]]
+                 (= (keyword kind)
+                    (-> (swagger-definition-for-route k8s route-name)
+                        :x-kubernetes-group-version-kind
+                        :kind
+                        keyword))))
+       vec))
+
+(defn version-of [k8s route-name]
+  (->> (swagger-definition-for-route k8s route-name)
+       :x-kubernetes-group-version-kind
+       :version))
+
+(defn sort-by-version
+  [k8s route-names]
+  (sort-by (fn [route-name]
+             (misc/first-index-of #(= % (version-of k8s route-name))
+                                  versions)) route-names))
+
+(defn choose-latest-version
+  [k8s route-names]
+  (first (sort-by-version k8s route-names)))
+
 (defn find-preffered-action [k8s search-params]
   (->> (find-action k8s search-params)
-       (filter (fn [x] (not (string/ends-with? (name x) "Status"))))))
-
-
+       (filter (fn [x] (not (string/ends-with? (name x) "Status"))))
+       ((partial choose-latest-version k8s))))
 
 (comment
 
-
-  (clojure.data/diff {} {:foo 42})
+  (new-route-name :get :tekton.dev :v1alpha1 :Namespaced :Task)
 
   (def home "/Users/rafaeleal/.kube")
+
+  (def c (client "https://kubernetes.docker.internal:6443"
+                 {:ca-cert     (str home "/ca-docker.crt")
+                  :client-cert (str home "/client-cert.pem")
+                  :client-key  (str home "/client-java.key")}))
+
+  (martian/explore c)
+
+  (extend-client c {:api "tekton.dev"
+                    :version "v1alpha1"})
+
+  (martian/explore c)
+
+  (misc/first-index-of #(= "v1" %) ["v2" "v1"])
+
+  (sort-by (fn [v] (misc/first-index-of #(= % v) versions)) ["v1beta1" "v1" "v1alpha1"])
+
+  (map (partial version-of c)  [:ReadRbacAuthorizationV1beta1ClusterRole
+                                :ReadRbacAuthorizationV1ClusterRole
+                                :ReadRbacAuthorizationV1alpha1ClusterRole])
+
+
+
+  (choose-latest-version c [:ReadRbacAuthorizationV1beta1ClusterRole
+                            :ReadRbacAuthorizationV1ClusterRole
+                            :ReadRbacAuthorizationV1alpha1ClusterRole])
+
+
+  (explore-kind c :CustomResourceDefinition)
+
+  (explore-kind c :Deployment)
+
+  (martian/explore c :ListApiextensionsV1CustomResourceDefinition)
+
+  (martian/request-for c :GetApiextensionsV1beta1ApiResources)
+
+  @(martian/response-for c :ListApiextensionsV1beta1CustomResourceDefinition)
+
+  @(martian/response-for c :GetApiextensionsV1beta1ApiResources)
+
+  @(org.httpkit.client/request
+     (assoc (martian/request-for c :ListApiextensionsV1beta1CustomResourceDefinition)
+       :url "https://kubernetes.docker.internal:6443/apis/tekton.dev/v1alpha1/tasks",))
+
+  @(org.httpkit.client/request
+     (assoc (martian/request-for c :ListApiextensionsV1beta1CustomResourceDefinition)
+       :url "https://kubernetes.docker.internal:6443/apis/tekton.dev/v1alpha1/namespaces/default/tasks",))
+
+
+  @(org.httpkit.client/request
+     (assoc (martian/request-for c :ListApiextensionsV1beta1CustomResourceDefinition)
+       :url "https://kubernetes.docker.internal:6443/apis/tekton.dev/v1alpha1",))
+
+  @(martian/response-for c :ListApiextensionsV1beta1CustomResourceDefinition)
+
+  (swagger-definition-for-route c :ReadRbacAuthorizationV1beta1ClusterRoleBinding)
+
+  (->> (:handlers c)
+       (misc/find-first #(= :ReadRbacAuthorizationV1beta1ClusterRoleBinding (:route-name %)))
+       :swagger-definition)
+  (clojure.data/diff {} {:foo 42})
+
+  (explore-kind c nil)
+  (martian/explore c :GetArbitraryApiResources)
+
+  @(martian/response-for c :GetArbitraryApiResources {:api "tekton.dev"
+                                                      :version "v1alpha1"})
+
   (->> (:handlers c)
        (filter #(= (:route-name %) :ReadApiextensionsV1beta1CustomResourceDefinition))
        first
@@ -175,12 +402,13 @@
 
   (actions c :CustomResourceDefinition)
 
-  (def c (client "https://kubernetes.docker.internal:6443"
-                 {:ca-cert     (str home "/ca-docker.crt")
-                  :client-cert (str home "/client-cert.pem")
-                  :client-key  (str home "/client-java.key")}))
-
   (martian/explore c)
+
+  (martian/explore c :GetApiVersions)
+
+
+  @(martian/response-for c :GetApiVersions)
+  @(martian/response-for c :GetCoreApiVersions)
 
   (martian/explore c :ReadApiextensionsV1CustomResourceDefinition)
 
@@ -193,6 +421,8 @@
 
   (martian/request-for c :ReadAppsV1NamespacedDeployment {:namespace "default"
                                                           :name      "nginx-deployment"})
+
+
 
 
   @(martian/response-for c :ListCoreV1NamespacedPod {:namespace "default"})
@@ -220,4 +450,70 @@
   (listeners/deregister ctx list-id)
 
   (listeners/status ctx list-id)
+
+
+  {(keyword "/apis/{api}/{version}/") {:get {:consumes ["application/json"
+                                                        "application/yaml"
+                                                        "application/vnd.kubernetes.protobuf"]
+                                             :descriptiion "get available resources for arbitrary api"
+                                             :operationId "GetArbitraryAPIResources"
+                                             :produces ["application/json"
+                                                        "application/yaml"
+                                                        "application/vnd.kubernetes.protobuf"]
+                                             :responses {"200" {:description "OK"
+                                                                :schema {:$ref "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"}}
+                                                         "401" {:description "Unauthorized"}}
+                                             :schemes ["https"]}
+                                       :parameters [{:in "path"
+                                                     :name "api"
+                                                     :schema {:type "string"}}
+                                                    {:in "path"
+                                                     :name "version"
+                                                     :schema {:type "string"}}]}}
+
   )
+
+;
+;{    "/apis/{api}/{version}/": {
+;                                "get": {
+;                                        "consumes": [
+;                                                     "application/json",
+;                                                     "application/yaml",
+;                                                     "application/vnd.kubernetes.protobuf"
+;                                                     ],
+;                                                  "description": "get available resources",
+;                                        "operationId": "getAdmissionregistrationV1APIResources",
+;                                        "produces": [
+;                                                     "application/json",
+;                                                     "application/yaml",
+;                                                     "application/vnd.kubernetes.protobuf"
+;                                                     ],
+;                                        "responses": {
+;                                                      "200": {
+;                                                              "description": "OK",
+;                                                                           "schema": {
+;                                                                                      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
+;                                                                                      }
+;                                                              },
+;                                                           "401": {
+;                                                                   "description": "Unauthorized"
+;                                                                   }
+;                                                      },
+;                                        "schemes": [
+;                                                    "https"
+;                                                    ],
+;                                        "tags": [
+;                                                 "admissionregistration_v1"
+;                                                 ]
+;                                        }
+;                                     "parameters": [
+;                                                    {
+;                                                     "in": "path",
+;                                                         "name": "api",
+;                                                     "schema": {"type": "string"}
+;                                                     },
+;                                                    {
+;                                                     "in": "path"
+;                                                     }
+;                                                    ]
+;                                },}

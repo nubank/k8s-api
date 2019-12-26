@@ -6,6 +6,7 @@
 (defn apply-file [client filepath])
 
 
+
 (comment
 
   (def c (k8s/client "https://kubernetes.docker.internal:6443"
@@ -18,10 +19,20 @@
                       :action :post})
 
 
+  (->> c
+       :handlers
+       (map :swagger-definition)
+       (map :x-kubernetes-group-version-kind)
+       (map :version)
+       (remove nil?)
+       distinct
+       sort)
+
 
   (map (fn [x]
-         (k8s/find-preffered-action c {:kind (keyword x)
-                             :action :get}))
-       (map :kind
-            (remove nil?
-                    (yaml/from-file "/Users/rafaeleal/Downloads/release.yaml" true)))))
+         (k8s/find-preffered-action c
+                                    {:kind   (keyword x)
+                                     :action :post}))
+       (distinct (map :kind
+             (remove nil?
+                     (yaml/from-file "/Users/rafaeleal/Downloads/release.yaml" true))))))
