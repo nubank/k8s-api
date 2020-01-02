@@ -1,6 +1,5 @@
 (ns kubernetes-api.misc)
 
-
 (defn find-first [pred coll]
   (first (filter pred coll)))
 
@@ -13,12 +12,14 @@
 (defn map-vals [f coll]
   (into {} (map (fn [[k v]] [k (f v)]) coll)))
 
+(defn map-keys [f coll]
+  (into {} (map (fn [[k v]] [(f k) v]) coll)))
+
 (defn assoc-some
   "Assoc[iate] if the value is not nil.
   Examples:
     (assoc-some {:a 1} :b false) => {:a 1 :b false}
-    (assoc-some {:a 1} :b nil) => {:a 1}
-  "
+    (assoc-some {:a 1} :b nil) => {:a 1}"
   ([m k v]
    (if (nil? v) m (assoc m k v)))
   ([m k v & kvs]

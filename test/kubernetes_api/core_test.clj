@@ -6,7 +6,7 @@
   (testing "FIXME, I fail."
     (is (= 0 1))))
 
-(deftest swagger-from-test
+#_(deftest swagger-from-test
   (testing "idk"
     (is (= {"/apis/tekton.dev/v1alpha1/tasks"
             {:get {:operationId "ListTektonDevV1alpha1TaskForAllNamespaces"}}
@@ -49,7 +49,7 @@
                                                       :schema {:openAPIV3Schema
                                                                {:type "object"}}}]}}]})))))
 
-(deftest routes-test
+#_(deftest routes-test
   (routes "list"
           {:api "tekton.dev"
                                               :version "v1alpha1"}
@@ -58,51 +58,10 @@
                   :scope "Namespaced"}}))
 
 
-(deftest method-test
+#_(deftest method-test
   (method "list"
           {:api     "tekton.dev"
            :version "v1alpha1"}
           {:spec {:names {:kind "Task"}
                   :scope "Namespaced"}}
           {}))
-
-(deftest new-route-name-test
-  (testing "list"
-    (is (= "ListTektonDevV1alpha1NamespacedTask"
-           (new-route-name "list" "tekton.dev" "v1alpha1" "Namespaced" "Task" {})))
-    (is (= "ListTektonDevV1alpha1TaskForAllNamespaces"
-           (new-route-name "list" "tekton.dev" "v1alpha1" "Namespaced" "Task" {:all-namespaces true}))))
-
-  (testing "get"
-    (is (= "ReadTektonDevV1alpha1NamespacedTask"
-           (new-route-name "get" "tekton.dev" "v1alpha1" "Namespaced" "Task" {}))))
-
-  (testing "create"
-    (is (= "CreateTektonDevV1alpha1NamespacedTask"
-           (new-route-name "create" "tekton.dev" "v1alpha1" "Namespaced" "Task" {}))))
-
-  (testing "deletecollection"
-    (is (= "DeleteTektonDevV1alpha1CollectionNamespacedTask"
-           (new-route-name "deletecollection" "tekton.dev" "v1alpha1" "Namespaced" "Task" {}))))
-
-  (testing "delete"
-    (is (= "DeleteTektonDevV1alpha1NamespacedTask"
-           (new-route-name "delete" "tekton.dev" "v1alpha1" "Namespaced" "Task" {}))))
-
-  (testing "patch"
-    (is (= "PatchTektonDevV1alpha1NamespacedTask"
-           (new-route-name "patch" "tekton.dev" "v1alpha1" "Namespaced" "Task" {}))))
-
-  (testing "update"
-    (is (= "ReplaceTektonDevV1alpha1NamespacedTask"
-           (new-route-name "update" "tekton.dev" "v1alpha1" "Namespaced" "Task" {}))))
-
-  (testing "watch"
-    (is (= "WatchTektonDevV1alpha1NamespacedTask"
-           (new-route-name "watch" "tekton.dev" "v1alpha1" "Namespaced" "Task" {})))
-    (is (= "WatchTektonDevV1alpha1TaskList"
-           (new-route-name "watch" "tekton.dev" "v1alpha1" nil "TaskList" {})))
-    (is (= "WatchTektonDevV1alpha1TaskListForAllNamespaces"
-           (new-route-name "watch" "tekton.dev" "v1alpha1" nil "TaskList" {:all-namespaces true})))
-    )
-  )

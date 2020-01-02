@@ -30,7 +30,7 @@
 
 
   (map (fn [x]
-         (k8s/find-preffered-action c
+         (k8s/find-preferred-action c
                                     {:kind   (keyword x)
                                      :action :post}))
        (distinct (map :kind

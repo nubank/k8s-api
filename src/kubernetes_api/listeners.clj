@@ -1,4 +1,5 @@
 (ns kubernetes-api.listeners
+  (:refer-clojure :exclude [delay])
   (:require [kubernetes-api.core :as k8s-api]
             [martian.core :as martian])
   (:import (java.util.concurrent TimeUnit Executors)
@@ -39,12 +40,12 @@
   polling-rate: seconds of delay between requests"
   [{:keys [client thread-pool-size polling-rate]
     :or   {thread-pool-size 1
-           polling-rate 1}}]
-  {:client client
+           polling-rate     1}}]
+  {:client           client
    :thread-pool-size thread-pool-size
-   :polling-rate polling-rate
-   :executer (new-executor thread-pool-size)
-   :state (atom {:listeners {}})})
+   :polling-rate     polling-rate
+   :executer         (new-executor thread-pool-size)
+   :state            (atom {:listeners {}})})
 
 (defn random-uuid []
   (UUID/randomUUID))
@@ -55,20 +56,17 @@
 
 (defn handler-fn
   [{:keys [client state] :as _context}
-   {:keys [id kind namespace name]}
+   {:keys [id kind namespace name] :as params}
    listener-fn]
   (fn []
     (let [current-version (get-in @state [:listeners id :version])
-         resp  @(martian/response-for client
-                                       (action (keyword kind))
-                                       {:namespace namespace
-                                        :name name})
-          new-version (get-in resp [:metadata :resourceVersion])]
+          resp            (k8s-api/invoke client params)
+          new-version     (get-in resp [:metadata :resourceVersion])]
       (when (not= current-version new-version)
+        (listener-fn resp)
         (swap! state
                (fn [st]
-                 (assoc-in st [:listeners id :version] new-version)))
-        (listener-fn resp)))))
+                 (assoc-in st [:listeners id :version] new-version)))))))
 
 (defn register
   [{:keys [executer state polling-rate] :as context}
