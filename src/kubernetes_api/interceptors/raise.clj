@@ -37,7 +37,7 @@
 (def status-code->error-type (zipmap (vals error-type->status-code) (keys error-type->status-code)))
 
 (defn raise-exception [{:keys [body status] :as _response}]
-  (throw (ex-info "API-Server error"
+  (throw (ex-info (str "APIServer error: " status)
                   {:type (status-code->error-type status)
                    :body body})))
 

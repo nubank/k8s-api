@@ -6,6 +6,7 @@
   :plugins [[lein-cljfmt "0.5.7"]
             [lein-kibit "0.1.6"]
             [lein-nsorg "0.2.0"]]
+  :cljfmt {:indents {providing [[:inner 0]]}}
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [martian "0.1.12-SNAPSHOT"]
                  [martian-httpkit "0.1.11"]
@@ -17,4 +18,5 @@
   :aliases {"lint"     ["do" ["cljfmt" "check"] ["nsorg"] ["kibit"]]
             "lint-fix" ["do" ["cljfmt" "fix"] ["nsorg" "--replace"]]}
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[nubank/matcher-combinators "1.2.7"]]}})
+             :dev {:dependencies [[nubank/matcher-combinators "1.2.7"]
+                                  [mockfn "0.5.0"]]}})

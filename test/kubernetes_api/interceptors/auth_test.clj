@@ -1,6 +1,29 @@
 (ns kubernetes-api.interceptors.auth-test
   (:require [clojure.test :refer :all]
+            [matcher-combinators.test]
+            [mockfn.core :refer [providing]]
+            [matcher-combinators.matchers :as m]
             [kubernetes-api.interceptors.auth :as interceptors.auth]))
 
 (deftest auth-test
-  (interceptors.auth/new {}))
+  (testing "request with basic-auth"
+    (is (match? {:request {:basic-auth "floki:freya1234"}}
+                ((:enter (interceptors.auth/new {:username "floki"
+                                                 :password "freya1234"})) {}))))
+  (testing "request with client certificate"
+    (providing [(#'interceptors.auth/new-ssl-engine {:client-cert "/some/client.crt"
+                                                     :client-key  "/some/client.key"
+                                                     :ca-cert     "/some/ca-cert.crt"}) 'SSLEngine]
+               (is (match? {:request {:sslengine #(= 'SSLEngine %)}}
+                 ((:enter (interceptors.auth/new {:client-cert "/some/client.crt"
+                                                  :client-key  "/some/client.key"
+                                                  :ca-cert     "/some/ca-cert.crt"})) {})))))
+  (testing "request with token"
+    (is (match? {:request {:oauth-token "TOKEN"}}
+                ((:enter (interceptors.auth/new {:token "TOKEN"})) {}))))
+  (testing "request with token-fn"
+    (is (match? {:request {:oauth-token "TOKEN"}}
+                ((:enter (interceptors.auth/new {:token-fn (constantly "TOKEN")})) {})))))
+
+(comment
+  (run-tests))
