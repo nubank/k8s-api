@@ -7,12 +7,12 @@
             [kubernetes-api.extensions.custom-resource-definition :as crd]
             [kubernetes-api.interceptors.auth :as interceptors.auth]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
+            [kubernetes-api.internals.client :as internals.client]
             [kubernetes-api.misc :as misc]
             [kubernetes-api.swagger :as swagger]
             [martian.core :as martian]
             [martian.httpkit :as martian-httpkit]
             martian.swagger
-            [kubernetes-api.internals.client :as internals.client]
             [schema.core :as s])
   (:import (java.util Base64)))
 
@@ -45,11 +45,11 @@
                              (:interceptors opts)
                              martian-httpkit/default-interceptors)
         k8s          (internals.client/pascal-case-routes
-                       (martian/bootstrap-swagger host (swagger/read)
-                                                  {:interceptors interceptors}))]
+                      (martian/bootstrap-swagger host (swagger/read)
+                                                 {:interceptors interceptors}))]
     (assoc k8s
-      ::api-group-list @(martian/response-for k8s :GetApiVersions)
-      ::core-api-versions @(martian/response-for k8s :GetCoreApiVersions))))
+           ::api-group-list @(martian/response-for k8s :GetApiVersions)
+           ::core-api-versions @(martian/response-for k8s :GetCoreApiVersions))))
 
 (defn invoke
   "Invoke a action on kubernetes api
@@ -82,7 +82,7 @@
     (internals.client/pascal-case-routes
      (update k8s
              :handlers #(concat % (martian.swagger/swagger->handlers
-                                    (crd/swagger-from extension-api api-resources crds)))))))
+                                   (crd/swagger-from extension-api api-resources crds)))))))
 
 (defn explore
   "Return a data structure with all actions performable on Kubernetes API,

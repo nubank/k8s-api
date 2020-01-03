@@ -1,7 +1,7 @@
 (ns kubernetes-api.internals.client
   (:require [camel-snake-kebab.core :as csk]
-            [kubernetes-api.misc :as misc]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [kubernetes-api.misc :as misc]))
 
 (defn pascal-case-routes [k8s]
   (update k8s :handlers
@@ -30,7 +30,6 @@
                       (= (boolean all-namespaces?) (all-namespaces-route? (:route-name handler))))))
        (map :route-name)))
 
-
 (defn version-of [k8s route-name]
   (->> (swagger-definition-for-route k8s route-name)
        :x-kubernetes-group-version-kind
@@ -49,10 +48,10 @@
 
 (defn core-versions [k8s]
   (mapv
-    #(hash-map :name ""
-               :versions [{:groupVersion % :version %}]
-               :preferredVersion {:groupVersion % :version %})
-    (:versions (:kubernetes-api.core/core-api-versions k8s))))
+   #(hash-map :name ""
+              :versions [{:groupVersion % :version %}]
+              :preferredVersion {:groupVersion % :version %})
+   (:versions (:kubernetes-api.core/core-api-versions k8s))))
 
 (defn all-versions [k8s]
   (concat (:groups (::api-group-list k8s))
@@ -60,11 +59,11 @@
 
 (defn choose-preffered-version [k8s route-names]
   (misc/find-first
-    (fn [route]
-      (some #(and (= (:name %) (group-of k8s route))
-                  (= (:version (:preferredVersion %)) (version-of k8s route)))
-            (all-versions k8s)))
-    route-names))
+   (fn [route]
+     (some #(and (= (:name %) (group-of k8s route))
+                 (= (:version (:preferredVersion %)) (version-of k8s route)))
+           (all-versions k8s)))
+   route-names))
 
 (defn find-preferred-action [k8s search-params]
   (->> (find-action k8s search-params)
