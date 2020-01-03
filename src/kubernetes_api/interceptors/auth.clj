@@ -23,13 +23,13 @@
 
 (defn request-auth-params [{:keys [token-fn] :as opts}]
   (merge
-    {:insecure? true}
-    (cond
-      (basic-auth? opts) {:basic-auth (basic-auth opts)}
-      (token? opts) {:oauth-token (:token opts)}
-      (token-fn? opts) {:oauth-token (token-fn opts)}
-      (client-certs? opts) {:insecure? false
-                            :sslengine (new-ssl-engine opts)})))
+   {:insecure? true}
+   (cond
+     (basic-auth? opts) {:basic-auth (basic-auth opts)}
+     (token? opts) {:oauth-token (:token opts)}
+     (token-fn? opts) {:oauth-token (token-fn opts)}
+     (client-certs? opts) {:insecure? false
+                           :sslengine (new-ssl-engine opts)})))
 
 (defn new [opts]
   {:name  ::authentication

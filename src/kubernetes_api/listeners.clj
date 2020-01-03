@@ -2,8 +2,8 @@
   (:refer-clojure :exclude [delay])
   (:require [kubernetes-api.core :as k8s-api]
             [martian.core :as martian])
-  (:import (java.util.concurrent TimeUnit Executors)
-           (java.util UUID)))
+  (:import (java.util UUID)
+           (java.util.concurrent Executors TimeUnit)))
 
 (defn- new-executor [size] (Executors/newScheduledThreadPool size))
 
@@ -81,7 +81,6 @@
                                                   polling-rate))))
     listener-id))
 
-
 (defn print-version
   [deployment]
   (prn (get-in deployment [:metadata :resourceVersion])))
@@ -99,6 +98,4 @@
 
   (.cancel print-foo-10 true)
 
-  (cancel-task print-foo-10)
-
-  )
+  (cancel-task print-foo-10))

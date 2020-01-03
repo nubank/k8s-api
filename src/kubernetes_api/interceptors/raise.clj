@@ -47,4 +47,4 @@
             (if (status-error? (:status response))
               (raise-exception response)
               (with-meta {:response (:body response)}
-                         {:request request :response response})))})
+                {:request request :response response})))})

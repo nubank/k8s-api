@@ -1,18 +1,18 @@
 (ns kubernetes-api.core
-  (:require [martian.core :as martian]
-            [martian.httpkit :as martian-httpkit]
-            martian.swagger
-            [kubernetes-api.interceptors.auth :as interceptors.auth]
-            [kubernetes-api.interceptors.raise :as interceptors.raise]
-            [kubernetes-api.swagger :as swagger]
-            [camel-snake-kebab.core :as csk]
+  (:require [camel-snake-kebab.core :as csk]
             clojure.data
             clojure.set
-            [kubernetes-api.extensions.custom-resource-definition :as crd]
-            [kubernetes-api.misc :as misc]
             [clojure.string :as string]
-            [schema.core :as s]
-            [clojure.walk :as walk])
+            [clojure.walk :as walk]
+            [kubernetes-api.extensions.custom-resource-definition :as crd]
+            [kubernetes-api.interceptors.auth :as interceptors.auth]
+            [kubernetes-api.interceptors.raise :as interceptors.raise]
+            [kubernetes-api.misc :as misc]
+            [kubernetes-api.swagger :as swagger]
+            [martian.core :as martian]
+            [martian.httpkit :as martian-httpkit]
+            martian.swagger
+            [schema.core :as s])
   (:import (java.util Base64)))
 
 (defn ^:private pascal-case-routes [k8s]
@@ -40,12 +40,12 @@
                          :password \"1234\"}})"
   [host opts]
   (let [k8s (pascal-case-routes
-              (martian/bootstrap-swagger host (swagger/read)
-                                         {:interceptors (concat [(interceptors.raise/new opts)
-                                                                 (interceptors.auth/new opts)]
-                                                                martian-httpkit/default-interceptors)}))]
+             (martian/bootstrap-swagger host (swagger/read)
+                                        {:interceptors (concat [(interceptors.raise/new opts)
+                                                                (interceptors.auth/new opts)]
+                                                               martian-httpkit/default-interceptors)}))]
     (assoc k8s
-      ::api-group-list @(martian/response-for k8s :GetApiVersions))))
+           ::api-group-list @(martian/response-for k8s :GetApiVersions))))
 
 (defn extend-client
   "Extend a Kubernetes Client to support CustomResourceDefinitions
@@ -58,8 +58,8 @@
                                               :version version})
         crds @(martian/response-for k8s :ListApiextensionsV1beta1CustomResourceDefinition)]
     (pascal-case-routes
-      (update k8s
-              :handlers #(concat % (martian.swagger/swagger->handlers (crd/swagger-from extension-api api-resources crds)))))))
+     (update k8s
+             :handlers #(concat % (martian.swagger/swagger->handlers (crd/swagger-from extension-api api-resources crds)))))))
 
 (defn handler-kind [handler]
   (-> handler :swagger-definition :x-kubernetes-group-version-kind :kind keyword))
@@ -146,19 +146,19 @@
 
 (defn core-versions [k8s]
   (mapv
-    #(hash-map :name ""
-               :versions [{:groupVersion % :version %}]
-               :preferredVersion {:groupVersion % :version %})
-    (:versions @(martian/response-for k8s :GetCoreApiVersions))))
+   #(hash-map :name ""
+              :versions [{:groupVersion % :version %}]
+              :preferredVersion {:groupVersion % :version %})
+   (:versions @(martian/response-for k8s :GetCoreApiVersions))))
 
 (defn choose-preffered-version [k8s route-names]
   (misc/find-first
-    (fn [route]
-      (some #(and (= (:name %) (group-of k8s route))
-                  (= (:version (:preferredVersion %)) (version-of k8s route)))
-            (concat (:groups (::api-group-list k8s))
-                    (core-versions k8s))))
-    route-names))
+   (fn [route]
+     (some #(and (= (:name %) (group-of k8s route))
+                 (= (:version (:preferredVersion %)) (version-of k8s route)))
+           (concat (:groups (::api-group-list k8s))
+                   (core-versions k8s))))
+   route-names))
 
 (defn find-preferred-action [k8s search-params]
   (->> (find-action k8s search-params)
@@ -180,5 +180,4 @@
 (defn info
   [k8s {:keys [request] :as params}]
   (martian/explore k8s (find-preferred-action k8s (dissoc params :request))))
-
 

@@ -1,9 +1,8 @@
 (ns kubernetes-api.swagger
   (:refer-clojure :exclude [read])
-  (:require [clojure.walk :as walk]
-            [cheshire.core :as json]
-            [clojure.string :as string]))
-
+  (:require [cheshire.core :as json]
+            [clojure.string :as string]
+            [clojure.walk :as walk]))
 
 (defn remove-watch-endpoints
   "Watch endpoints doesn't follow the http1.1 specification, so it will not work
@@ -26,14 +25,13 @@
   (walk/postwalk (fn [{:keys [x-kubernetes-action] :as form}]
                    (if x-kubernetes-action
                      (assoc form :x-kubernetes-action
-                                 (case (keyword x-kubernetes-action)
-                                   :post "create"
-                                   :put "update"
-                                   :watchlist "watch"
-                                   x-kubernetes-action))
+                            (case (keyword x-kubernetes-action)
+                              :post "create"
+                              :put "update"
+                              :watchlist "watch"
+                              x-kubernetes-action))
                      form))
                  swagger))
-
 
 (defn fix-consumes
   "Some endpoints declares that consumes */* which is not true and it doesn't

@@ -1,6 +1,6 @@
 (ns kubernetes-api.extensions.custom-resource-definition
-  (:require [clojure.string :as string]
-            [camel-snake-kebab.core :as csk]
+  (:require [camel-snake-kebab.core :as csk]
+            [clojure.string :as string]
             [kubernetes-api.misc :as misc]))
 
 (defn new-route-name
@@ -12,20 +12,19 @@
               "deletecollection" "delete"
               k8s-verb))
           (suffix [k8s-verb]
-            (case k8s-verb
-              "deletecollection" "collection"
-              nil))]
+                  (case k8s-verb
+                    "deletecollection" "collection"
+                    nil))]
     (csk/->PascalCase (string/join "_" (->> [(prefix verb)
-                                            group
-                                            version
+                                             group
+                                             version
                                              (suffix verb)
-                                            (when-not all-namespaces scope)
+                                             (when-not all-namespaces scope)
                                              (csk/->snake_case kind)
-                                            (when all-namespaces :for_all_namespaces)]
+                                             (when all-namespaces :for_all_namespaces)]
                                             (remove nil?)
                                             (map name)))
-                     :separator #"[_\.]")))
-
+                      :separator #"[_\.]")))
 
 (def k8s-verb->http-verb
   {"delete"           "delete"
@@ -59,8 +58,8 @@
                        :consumes                        content-types
                        :produces                        content-types
                        :responses                       {"200" (misc/assoc-some
-                                                                 {:description "OK"}
-                                                                 :schema (-> crd-version :schema :openAPIV3Schema))
+                                                                {:description "OK"}
+                                                                :schema (-> crd-version :schema :openAPIV3Schema))
                                                          "401" {:description "Unauthorized"}}
                        :x-kubernetes-action             k8s-verb
                        :x-kubernetes-group-version-kind {:group   api
@@ -104,21 +103,21 @@
         (map (fn [[path methods]]
                [path (misc/assoc-some methods
                                       :parameters (cond
-                                               (string/starts-with? (name path) (named-route extension-api resource-name))
-                                               [{:in     "path"
-                                                 :name   "name"
-                                                 :required true
-                                                 :schema {:type "string"}}
-                                                {:in     "path"
-                                                 :name   "namespace"
-                                                 :required true
-                                                 :schema {:type "string"}}]
-                                               (string/starts-with? (name path) (namespaced-route extension-api resource-name))
-                                               [{:in     "path"
-                                                 :name   "namespace"
-                                                 :required true
-                                                 :schema {:type "string"}}]
-                                               :else nil))]) paths)))
+                                                    (string/starts-with? (name path) (named-route extension-api resource-name))
+                                                    [{:in     "path"
+                                                      :name   "name"
+                                                      :required true
+                                                      :schema {:type "string"}}
+                                                     {:in     "path"
+                                                      :name   "namespace"
+                                                      :required true
+                                                      :schema {:type "string"}}]
+                                                    (string/starts-with? (name path) (namespaced-route extension-api resource-name))
+                                                    [{:in     "path"
+                                                      :name   "namespace"
+                                                      :required true
+                                                      :schema {:type "string"}}]
+                                                    :else nil))]) paths)))
 
 (defn single-resource-swagger [extension-api {:keys [verbs] :as resource} crd]
   (->> (mapcat #(routes % extension-api resource crd) verbs)
@@ -155,9 +154,9 @@
   {:paths (->> (mapcat (fn [resource]
                          (single-resource-swagger extention-api resource
                                                   (misc/find-first
-                                                    (fn [{{:keys [group version names]} :spec}]
-                                                      (and (= (:api extention-api) group)
-                                                           (= (:version extention-api) version)
-                                                           (= (:kind resource) (:kind names)))) items)))
+                                                   (fn [{{:keys [group version names]} :spec}]
+                                                     (and (= (:api extention-api) group)
+                                                          (= (:version extention-api) version)
+                                                          (= (:kind resource) (:kind names)))) items)))
                        (top-level-resources resources))
                (into {}))})
