@@ -28,6 +28,12 @@
 (defn ^:private all-namespaces-route? [route-name]
   (string/ends-with? (name route-name) "ForAllNamespaces"))
 
+(defn ^:private scale-route? [route-name]
+  (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name)))
+
+(defn scale-resource [route-name]
+  (second (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name))))
+
 (defn kind
   "Returns a kubernetes-api kind. Similar to handler-kind, but deals with some
   corner-cases.
@@ -38,15 +44,8 @@
   (let [kind (some-> (handler-kind handler) name)]
     (cond
       (string/ends-with? (name route-name) "Status") (keyword kind "Status")
-      (and (string/ends-with? (name route-name) "Scale")
-           (not (= kind "Scale"))) (keyword kind "Scale")
+      (string/ends-with? (name route-name) "Scale") (keyword (scale-resource route-name) "Scale")
       :else (keyword kind))))
-
-(defn ^:private scale-route? [route-name]
-  (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name)))
-
-(defn scale-resource [route-name]
-  (second (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name))))
 
 (defn action
   "Return a kubernetes-api action. Similar to handler-action, but tries to be
@@ -56,7 +55,6 @@
   :list-all"
   [{:keys [route-name method] :as handler}]
   (cond
-    (scale-route? route-name) (keyword (scale-resource route-name) (name (handler-action handler)))
     (re-matches #"Create.*NamespacedPodBinding" (name route-name)) :pod/create
     (re-matches #"Connect.*ProxyWithPath" (name route-name)) (keyword "connect.with-path" (name method))
     (re-matches #"Connect.*Proxy" (name route-name)) (keyword "connect" (name method))

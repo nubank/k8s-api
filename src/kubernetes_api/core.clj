@@ -105,10 +105,11 @@
   ([{:keys [handlers] :as k8s}]
    (->> (filter (partial internals.client/preffered-version? k8s) handlers)
         (group-by internals.client/kind)
-        (mapv (fn [[kind handlers]]
+        (map (fn [[kind handlers]]
                 (vec (cons (keyword kind)
                            (mapv (juxt internals.client/action :summary :route-name) handlers)))))
-        (sort-by (comp str first))))
+        (sort-by (comp str first))
+        vec))
   ([k8s kind]
    (->> (explore k8s)
         (misc/find-first #(= kind (first %)))
