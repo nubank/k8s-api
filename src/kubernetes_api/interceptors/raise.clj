@@ -1,7 +1,7 @@
 (ns kubernetes-api.interceptors.raise)
 
 (defn status-error? [status]
-  (>= status 400))
+  (or (nil? status) (>= status 400)))
 
 (def ^:private error-type->status-code
   {:bad-request                   400
@@ -41,10 +41,15 @@
                   {:type (status-code->error-type status)
                    :body body})))
 
+(defn check-response
+  "Checks the status code. If 400+, raises an exception, returns body otherwise"
+  [response]
+  (if (status-error? (:status response))
+    (raise-exception response)
+    (:body response)))
+
 (defn new [_]
   {:name  ::raise
    :leave (fn [{:keys [request response] :as _context}]
-            (if (status-error? (:status response))
-              (raise-exception response)
-              (with-meta {:response (:body response)}
-                {:request request :response response})))})
+            (with-meta {:response (check-response response)}
+                       {:request request :response response}))})

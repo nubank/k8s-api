@@ -27,9 +27,9 @@
   :basic-auth - a map with plain text username/password
   :token - oauth token string without Bearer prefix
   :token-fn - a single-argument function that receives this opts and returns a
-   token
+               token
   :client-cert/:ca-cert/:client-key - string filepath indicating certificates
-   and key files to configure client certificate
+                                       and key files to configure client cert.
   :insecure? - ignore self-signed server certificates
 
   [Custom]
@@ -45,8 +45,10 @@
                              (:interceptors opts)
                              martian-httpkit/default-interceptors)
         k8s          (internals.client/pascal-case-routes
-                      (martian/bootstrap-swagger host (swagger/read)
-                                                 {:interceptors interceptors}))]
+                       (martian/bootstrap-swagger host
+                                                  (or (swagger/from-api host opts)
+                                                      (swagger/read))
+                                                  {:interceptors interceptors}))]
     (assoc k8s
            ::api-group-list @(martian/response-for k8s :GetApiVersions)
            ::core-api-versions @(martian/response-for k8s :GetCoreApiVersions))))
@@ -56,8 +58,8 @@
 
    Parameters:
     :kind - a keyword identifing a kubernetes entity
-    :action - each entity can have different subset of action from #{:create
-     :update :patch :list :get :delete :deletecollection}
+    :action - each entity can have different subset of action. Examples:
+               :create :update :patch :list :get :delete :deletecollection
     :request - to check what is this use kubernetes-api.core/info function
    Example:
    (invoke k8s {:kind :Deployment
@@ -65,7 +67,7 @@
                 :request {:namespace \"default\"
                           :body {:apiVersion \"v1\", ...}})"
   [k8s {:keys [request] :as params}]
-  (if-let [action (internals.client/find-preferred-action k8s (dissoc params :request))]
+  (if-let [action (internals.client/find-preferred-route k8s (dissoc params :request))]
     @(martian/response-for k8s action (or request {}))
     (throw (ex-info "Could not find action" {:search (dissoc params :request)}))))
 
@@ -100,10 +102,13 @@
     => [:Deployment
          [:create \"description\"]
          ...]"
-  ([{:keys [handlers]}]
-   (->> (group-by internals.client/handler-kind handlers)
+  ([{:keys [handlers] :as k8s}]
+   (->> (filter (partial internals.client/preffered-version? k8s) handlers)
+        (group-by internals.client/kind)
         (mapv (fn [[kind handlers]]
-                (vec (cons (keyword kind) (mapv (juxt internals.client/handler-action :summary) handlers)))))))
+                (vec (cons (keyword kind)
+                           (mapv (juxt internals.client/action :summary :route-name) handlers)))))
+        (sort-by (comp str first))))
   ([k8s kind]
    (->> (explore k8s)
         (misc/find-first #(= kind (first %)))
@@ -114,7 +119,7 @@
     mostly for debugging. For customizing this, use the :interceptors option
     while creating an client"
   [k8s {:keys [request] :as params}]
-  (if-let [action (internals.client/find-preferred-action k8s (dissoc params :request))]
+  (if-let [action (internals.client/find-preferred-route k8s (dissoc params :request))]
     (martian/request-for k8s action (or request {}))
     (throw (ex-info "Could not find action" {:search (dissoc params :request)}))))
 
@@ -122,5 +127,5 @@
   "Returns everything on a specific action, including request and response
     schemas"
   [k8s params]
-  (martian/explore k8s (internals.client/find-preferred-action k8s (dissoc params :request))))
+  (martian/explore k8s (internals.client/find-preferred-route k8s (dissoc params :request))))
 

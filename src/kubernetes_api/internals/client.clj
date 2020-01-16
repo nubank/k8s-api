@@ -16,13 +16,58 @@
 (defn handler-kind [handler]
   (-> handler :swagger-definition :x-kubernetes-group-version-kind :kind keyword))
 
+(defn handler-group [handler]
+  (-> handler :swagger-definition :x-kubernetes-group-version-kind :group))
+
+(defn handler-version [handler]
+  (-> handler :swagger-definition :x-kubernetes-group-version-kind :version))
+
 (defn handler-action [handler]
   (-> handler :swagger-definition :x-kubernetes-action keyword))
 
 (defn ^:private all-namespaces-route? [route-name]
   (string/ends-with? (name route-name) "ForAllNamespaces"))
 
-(defn find-action [k8s {:keys [kind action all-namespaces?] :as _search-params}]
+(defn kind
+  "Returns a kubernetes-api kind. Similar to handler-kind, but deals with some
+  corner-cases.
+
+  Example:
+  Deployment/Status"
+  [{:keys [route-name] :as handler}]
+  (let [kind (some-> (handler-kind handler) name)]
+    (cond
+      (string/ends-with? (name route-name) "Status") (keyword kind "Status")
+      (and (string/ends-with? (name route-name) "Scale")
+           (not (= kind "Scale"))) (keyword kind "Scale")
+      :else (keyword kind))))
+
+(defn ^:private scale-route? [route-name]
+  (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name)))
+
+(defn scale-resource [route-name]
+  (second (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name))))
+
+(defn action
+  "Return a kubernetes-api action. Similar to handler-action, but tries to be
+  unique for each kind.
+
+  Example:
+  :list-all"
+  [{:keys [route-name method] :as handler}]
+  (cond
+    (scale-route? route-name) (keyword (scale-resource route-name) (name (handler-action handler)))
+    (re-matches #"Create.*NamespacedPodBinding" (name route-name)) :pod/create
+    (re-matches #"Connect.*ProxyWithPath" (name route-name)) (keyword "connect.with-path" (name method))
+    (re-matches #"Connect.*Proxy" (name route-name)) (keyword "connect" (name method))
+    (re-matches #"Connect.*" (name route-name)) (keyword "connect" (name method))
+    (re-matches #"ReplaceCertificates.*CertificateSigningRequestApproval" (name route-name)) :replace-approval
+    (re-matches #"Read.*NamespacedPodLog" (name route-name)) :misc/logs
+    (re-matches #"Replace.*NamespaceFinalize" (name route-name)) :misc/finalize
+    (all-namespaces-route? route-name) (keyword (str (name (handler-action handler)) "-all"))
+    :else (handler-action handler)))
+
+(defn find-route [k8s {:keys [kind action all-namespaces?] :as _search-params}]
   (->> (:handlers k8s)
        (filter (fn [handler]
                  (and (or (= (keyword kind) (handler-kind handler)) (nil? kind))
@@ -54,7 +99,7 @@
    (:versions (:kubernetes-api.core/core-api-versions k8s))))
 
 (defn all-versions [k8s]
-  (concat (:groups (::api-group-list k8s))
+  (concat (:groups (:kubernetes-api.core/api-group-list k8s))
           (core-versions k8s)))
 
 (defn choose-preffered-version [k8s route-names]
@@ -65,7 +110,14 @@
            (all-versions k8s)))
    route-names))
 
-(defn find-preferred-action [k8s search-params]
-  (->> (find-action k8s search-params)
+(defn find-preferred-route [k8s search-params]
+  (->> (find-route k8s search-params)
        (filter (fn [x] (not (string/ends-with? (name x) "Status"))))
        ((partial choose-preffered-version k8s))))
+
+(defn preffered-version? [k8s handler]
+  (let [preffered-route (find-preferred-route k8s {:kind   (handler-kind handler)
+                                                   :action (handler-action handler)})]
+    (and (= (handler-version handler) (version-of k8s preffered-route))
+         (= (handler-group handler) (group-of k8s preffered-route)))))
+

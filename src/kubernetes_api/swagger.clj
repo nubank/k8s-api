@@ -2,7 +2,10 @@
   (:refer-clojure :exclude [read])
   (:require [cheshire.core :as json]
             [clojure.string :as string]
-            [clojure.walk :as walk]))
+            [org.httpkit.client :as http]
+            [clojure.walk :as walk]
+            [kubernetes-api.interceptors.auth :as interceptors.auth]
+            [kubernetes-api.interceptors.raise :as interceptors.raise]))
 
 (defn remove-watch-endpoints
   "Watch endpoints doesn't follow the http1.1 specification, so it will not work
@@ -95,3 +98,17 @@
 
 (defn read []
   (customized (json/parse-string (slurp "resources/swagger.json") keyword-except-paths)))
+
+(defn from-api* [api-root opts]
+  (json/parse-string
+    (interceptors.raise/check-response
+      @(http/request (merge {:url    (str api-root "/openapi/v2")
+                             :method :get}
+                            (interceptors.auth/request-auth-params opts))))
+    keyword-except-paths))
+
+(defn from-api [api-root opts]
+  (try
+    (customized (from-api* api-root opts))
+    (catch Exception _
+      nil)))
