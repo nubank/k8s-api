@@ -8,7 +8,7 @@
           (fn [handlers]
             (mapv #(update % :route-name csk/->PascalCase) handlers))))
 
-(defn ^:private swagger-definition-for-route [k8s route-name]
+(defn swagger-definition-for-route [k8s route-name]
   (->> (:handlers k8s)
        (misc/find-first #(= route-name (:route-name %)))
        :swagger-definition))
@@ -25,18 +25,16 @@
 (defn handler-action [handler]
   (-> handler :swagger-definition :x-kubernetes-action keyword))
 
-(defn ^:private all-namespaces-route? [route-name]
+(defn all-namespaces-route? [route-name]
   (string/ends-with? (name route-name) "ForAllNamespaces"))
-
-(defn ^:private scale-route? [route-name]
-  (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name)))
 
 (defn scale-resource [route-name]
   (second (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name))))
 
 (defn kind
   "Returns a kubernetes-api kind. Similar to handler-kind, but deals with some
-  corner-cases.
+  corner-cases. Returns a keyword, that is namespaced only if there's a
+  subresource.
 
   Example:
   Deployment/Status"
@@ -100,7 +98,7 @@
   (concat (:groups (:kubernetes-api.core/api-group-list k8s))
           (core-versions k8s)))
 
-(defn choose-preffered-version [k8s route-names]
+(defn ^:private choose-preffered-version [k8s route-names]
   (misc/find-first
    (fn [route]
      (some #(and (= (:name %) (group-of k8s route))

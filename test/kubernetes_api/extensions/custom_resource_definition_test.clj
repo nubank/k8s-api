@@ -43,30 +43,5 @@
 
 (comment
 
-  (run-tests) (crd/swagger-from
-               {:api "tekton.dev"
-                :version "v1alpha1"}
-               {:kind "APIResourceList"
-                :groupVersion "tekton.dev/v1alpha1"
-                :resources [{:name "tasks",
-                             :singularName "task",
-                             :namespaced true,
-                             :kind "Task",
-                             :verbs ["delete" "deletecollection" "get" "list" "patch" "create" "update" "watch"],
-                             :categories ["all" "tekton-pipelines"],
-                             :storageVersionHash "Vwu99D/K4xM="}]}
-               {:kind "CustomResourceDefinitionList"
-                :items [{:spec {:group "tekton.dev"
-                                :version "v1alpha1"
-                                :names {:singular "task"
-                                        :plural "tasks"
-                                        :kind "Task"
-                                        :listKind "TaskList"
-                                        :categories ["all" "tekton-pipelines"]}
-                                :scope "Namespaced"
-                                :subresources {:status {}}
-                                :versions [{:name "v1alpha1"
-                                            :served true
-                                            :storage true
-                                            :schema {:openAPIV3Schema
-                                                     {:type "object"}}}]}}]}))
+  (run-tests)
+  )

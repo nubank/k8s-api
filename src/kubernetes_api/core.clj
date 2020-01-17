@@ -1,10 +1,5 @@
 (ns kubernetes-api.core
-  (:require [camel-snake-kebab.core :as csk]
-            clojure.data
-            clojure.set
-            [clojure.string :as string]
-            [clojure.walk :as walk]
-            [kubernetes-api.extensions.custom-resource-definition :as crd]
+  (:require [kubernetes-api.extensions.custom-resource-definition :as crd]
             [kubernetes-api.interceptors.auth :as interceptors.auth]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [kubernetes-api.internals.client :as internals.client]
@@ -12,9 +7,7 @@
             [kubernetes-api.swagger :as swagger]
             [martian.core :as martian]
             [martian.httpkit :as martian-httpkit]
-            martian.swagger
-            [schema.core :as s])
-  (:import (java.util Base64)))
+            martian.swagger))
 
 (defn client
   "Creates a Kubernetes Client compliant with martian api and its helpers
@@ -107,7 +100,7 @@
         (group-by internals.client/kind)
         (map (fn [[kind handlers]]
                 (vec (cons (keyword kind)
-                           (mapv (juxt internals.client/action :summary :route-name) handlers)))))
+                           (mapv (juxt internals.client/action :summary) handlers)))))
         (sort-by (comp str first))
         vec))
   ([k8s kind]
