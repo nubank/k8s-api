@@ -9,7 +9,6 @@
          (internals.client/pascal-case-routes {:handlers [{:route-name :foo-bar}
                                                           {:route-name :du-dudu-edu}]}))))
 
-
 (deftest swagger-definition-for-route-test
   (is (= 'swagger-definition
          (internals.client/swagger-definition-for-route {:handlers [{:route-name         :FooBar
@@ -48,15 +47,14 @@
          (internals.client/kind {:route-name         :CreateV1NamespacedDeploymentStatus
                                  :swagger-definition {:x-kubernetes-group-version-kind {:kind "Deployment"}}}))))
 
-
 (deftest action-test
   (is (= :create (internals.client/action {:route-name :ItDoesntMatter
                                            :swagger-definition {:x-kubernetes-action "create"}})))
   (is (= :list-all (internals.client/action {:route-name :ReadXForAllNamespaces
-                                           :swagger-definition {:x-kubernetes-action "list"}})))
+                                             :swagger-definition {:x-kubernetes-action "list"}})))
   (testing "Binding special case"
     (is (= :pod/create (internals.client/action {:route-name         :CreateFooNamespacedPodBinding
-                                                :swagger-definition {:x-kubernetes-action "create"}}))))
+                                                 :swagger-definition {:x-kubernetes-action "create"}}))))
   (testing "Connect special case"
     (is (= :connect.with-path/head (internals.client/action {:route-name         :ConnectFooProxyWithPath
                                                              :method             "head"
@@ -68,8 +66,8 @@
                                                    :method             "head"
                                                    :swagger-definition {:x-kubernetes-action "connect"}})))
     (is (= :connect/post (internals.client/action {:route-name         :ConnectFooProxy
-                                                             :method             "post"
-                                                             :swagger-definition {:x-kubernetes-action "connect"}})))
+                                                   :method             "post"
+                                                   :swagger-definition {:x-kubernetes-action "connect"}})))
     (is (= :connect/head (internals.client/action {:route-name         :ConnectFoo
                                                    :method             "head"
                                                    :swagger-definition {:x-kubernetes-action "connect"}})))
@@ -82,7 +80,6 @@
   (testing "Pod misc"
     (is (= :misc/logs (internals.client/action {:route-name :ReadV1NamespacedPodLog})))
     (is (= :misc/finalize (internals.client/action {:route-name :ReplaceV1NamespaceFinalize})))))
-
 
 (def example-k8s {:handlers [{:route-name         :CreateV1alpha1Orange
                               :swagger-definition {:x-kubernetes-action             "create"
@@ -139,23 +136,23 @@
 (deftest find-preferred-route-test
   (is (= :CreateV1alpha2Orange
          (internals.client/find-preferred-route
-           {:kubernetes-api.core/core-api-versions {:versions ["v1"]}
-            :kubernetes-api.core/api-group-list    {:groups [{:name             "fruits"
-                                                              :versions         [{:groupVersion "fruits/v1alpha1" :version "v1alpha1"}
-                                                                                 {:groupVersion "fruits/v1alpha2" :version "v1alpha2"}]
-                                                              :preferredVersion {:groupVersion "apps/v1alpha2" :version "v1alpha2"}}]}
-            :handlers                              [{:route-name         :CreateV1alpha1Orange
-                                                     :swagger-definition {:x-kubernetes-action             "create"
-                                                                          :x-kubernetes-group-version-kind {:group   "fruits"
-                                                                                                            :version "v1alpha1"
-                                                                                                            :kind    "Orange"}}}
-                                                    {:route-name         :CreateV1alpha2Orange
-                                                     :swagger-definition {:x-kubernetes-action             "create"
-                                                                          :x-kubernetes-group-version-kind {:group   "fruits"
-                                                                                                            :version "v1alpha2"
-                                                                                                            :kind    "Orange"}}}]}
-           {:kind   :Orange
-            :action :create}))))
+          {:kubernetes-api.core/core-api-versions {:versions ["v1"]}
+           :kubernetes-api.core/api-group-list    {:groups [{:name             "fruits"
+                                                             :versions         [{:groupVersion "fruits/v1alpha1" :version "v1alpha1"}
+                                                                                {:groupVersion "fruits/v1alpha2" :version "v1alpha2"}]
+                                                             :preferredVersion {:groupVersion "apps/v1alpha2" :version "v1alpha2"}}]}
+           :handlers                              [{:route-name         :CreateV1alpha1Orange
+                                                    :swagger-definition {:x-kubernetes-action             "create"
+                                                                         :x-kubernetes-group-version-kind {:group   "fruits"
+                                                                                                           :version "v1alpha1"
+                                                                                                           :kind    "Orange"}}}
+                                                   {:route-name         :CreateV1alpha2Orange
+                                                    :swagger-definition {:x-kubernetes-action             "create"
+                                                                         :x-kubernetes-group-version-kind {:group   "fruits"
+                                                                                                           :version "v1alpha2"
+                                                                                                           :kind    "Orange"}}}]}
+          {:kind   :Orange
+           :action :create}))))
 
 (deftest preffered-version?-test
   (let [k8s {:kubernetes-api.core/core-api-versions {:versions ["v1"]}
@@ -174,14 +171,14 @@
                                                                                                              :version "v1alpha2"
                                                                                                              :kind    "Orange"}}}]}]
     (is (internals.client/preffered-version? k8s
-          {:route-name         :CreateV1alpha2Orange
-           :swagger-definition {:x-kubernetes-action             "create"
-                                :x-kubernetes-group-version-kind {:group   "fruits"
-                                                                  :version "v1alpha2"
-                                                                  :kind    "Orange"}}}))
+                                             {:route-name         :CreateV1alpha2Orange
+                                              :swagger-definition {:x-kubernetes-action             "create"
+                                                                   :x-kubernetes-group-version-kind {:group   "fruits"
+                                                                                                     :version "v1alpha2"
+                                                                                                     :kind    "Orange"}}}))
     (is (not (internals.client/preffered-version? k8s
-               {:route-name         :CreateV1alpha1Orange
-                :swagger-definition {:x-kubernetes-action             "create"
-                                     :x-kubernetes-group-version-kind {:group   "fruits"
-                                                                       :version "v1alpha1"
-                                                                       :kind    "Orange"}}})))))
+                                                  {:route-name         :CreateV1alpha1Orange
+                                                   :swagger-definition {:x-kubernetes-action             "create"
+                                                                        :x-kubernetes-group-version-kind {:group   "fruits"
+                                                                                                          :version "v1alpha1"
+                                                                                                          :kind    "Orange"}}})))))

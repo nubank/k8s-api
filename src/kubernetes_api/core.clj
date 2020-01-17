@@ -38,10 +38,10 @@
                              (:interceptors opts)
                              martian-httpkit/default-interceptors)
         k8s          (internals.client/pascal-case-routes
-                       (martian/bootstrap-swagger host
-                                                  (or (swagger/from-api host opts)
-                                                      (swagger/read))
-                                                  {:interceptors interceptors}))]
+                      (martian/bootstrap-swagger host
+                                                 (or (swagger/from-api host opts)
+                                                     (swagger/read))
+                                                 {:interceptors interceptors}))]
     (assoc k8s
            ::api-group-list @(martian/response-for k8s :GetApiVersions)
            ::core-api-versions @(martian/response-for k8s :GetCoreApiVersions))))
@@ -99,8 +99,8 @@
    (->> (filter (partial internals.client/preffered-version? k8s) handlers)
         (group-by internals.client/kind)
         (map (fn [[kind handlers]]
-                (vec (cons (keyword kind)
-                           (mapv (juxt internals.client/action :summary) handlers)))))
+               (vec (cons (keyword kind)
+                          (mapv (juxt internals.client/action :summary) handlers)))))
         (sort-by (comp str first))
         vec))
   ([k8s kind]

@@ -24,14 +24,14 @@
 
 (defn request-auth-params [{:keys [token-fn insecure?] :as opts}]
   (merge
-    {:insecure? (or insecure? false)}
-    (cond
-      (basic-auth? opts) {:basic-auth (basic-auth opts)}
-      (token? opts) {:oauth-token (:token opts)}
-      (token-fn? opts) {:oauth-token (token-fn opts)}
-      (client-certs? opts) {:sslengine (new-ssl-engine opts)}
-      :else (do (log/info "No authentication method found")
-                {}))))
+   {:insecure? (or insecure? false)}
+   (cond
+     (basic-auth? opts) {:basic-auth (basic-auth opts)}
+     (token? opts) {:oauth-token (:token opts)}
+     (token-fn? opts) {:oauth-token (token-fn opts)}
+     (client-certs? opts) {:sslengine (new-ssl-engine opts)}
+     :else (do (log/info "No authentication method found")
+               {}))))
 
 (defn new [opts]
   {:name  ::authentication
