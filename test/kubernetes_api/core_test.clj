@@ -1,7 +1,5 @@
 (ns kubernetes-api.core-test
   (:require [clojure.test :refer :all]
-            [kubernetes-api.core :refer :all]))
+            [kubernetes-api.core :as k8s-api]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+;; TODO
