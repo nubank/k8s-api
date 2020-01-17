@@ -90,12 +90,3 @@
    id]
   (cancel-task (get-in @state [:listeners id :task])))
 
-(comment
-
-  (def print-foo-10 (schedule-with-delay-seconds executer-thread-pool (fn [] (prn "foo")) 10))
-
-  (def print-foo-10 (schedule-periodic-seconds executer-thread-pool (fn [] (prn "foo")) 1))
-
-  (.cancel print-foo-10 true)
-
-  (cancel-task print-foo-10))

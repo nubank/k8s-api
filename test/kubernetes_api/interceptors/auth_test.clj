@@ -24,6 +24,3 @@
   (testing "request with token-fn"
     (is (match? {:request {:oauth-token "TOKEN"}}
                 ((:enter (interceptors.auth/new {:token-fn (constantly "TOKEN")})) {})))))
-
-(comment
-  (run-tests))

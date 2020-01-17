@@ -23,7 +23,3 @@
       (is (thrown-match?
             {:type :unauthorized}
             (leave {:response {:status 401}}))))))
-
-
-(comment
-  (run-tests))

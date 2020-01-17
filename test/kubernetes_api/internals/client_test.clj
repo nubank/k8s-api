@@ -185,7 +185,3 @@
                                      :x-kubernetes-group-version-kind {:group   "fruits"
                                                                        :version "v1alpha1"
                                                                        :kind    "Orange"}}})))))
-
-
-(comment
-  (run-tests))

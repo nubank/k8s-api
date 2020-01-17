@@ -62,11 +62,3 @@
                                   {:Movie {:type       "object"
                                            :properties {:name {:type "string"}}}}
                                   {"/movies/{id}" {:get {:response-schemas {"200" {:$ref "#/definitions/Movie"}}}}}))))
-
-(comment
-  (clojure.tools.namespace.repl/refresh)
-  (run-tests)
-  (add-summary-test)
-  (fix-consumes-test)
-  (fix-k8s-verbs-test)
-  (remove-watch-endpoints-test))

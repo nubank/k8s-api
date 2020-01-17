@@ -41,7 +41,3 @@
     (is (= "WatchTektonDevV1alpha1TaskListForAllNamespaces"
            (crd/new-route-name "watch" "tekton.dev" "v1alpha1" nil "TaskList" {:all-namespaces true})))))
 
-(comment
-
-  (run-tests)
-  )
