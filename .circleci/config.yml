@@ -29,10 +29,18 @@ jobs:
   lint:
     <<: *defaults
     steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "project.clj" }}
+            - v1-dependencies-
       - run: lein lint
 workflows:
   version: 2
   build_and_test:
     jobs:
       - build
-      - lint
+      - lint:
+          requires:
+            - build
+
