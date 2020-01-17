@@ -20,8 +20,8 @@
                                        (filter #(string/includes? % "/watch"))))))))
 
 (defn fix-k8s-verb
-  "For some reason, the x-kubernetes-action given by the kubernetes api doesnt
-  respect its on specification :shrug:
+  "For some reason, the x-kubernetes-action given by the kubernetes api doesn't
+  respect its own specification :shrug:
 
   More info: https://kubernetes.io/docs/reference/access-authn-authz/authorization/#determine-the-request-verb"
   [swagger]
@@ -97,7 +97,7 @@
     (keyword s)))
 
 (defn read []
-  (customized (json/parse-string (slurp "resources/swagger.json") keyword-except-paths)))
+  (customized (json/parse-string (slurp "resources/kubernetes_api/swagger.json") keyword-except-paths)))
 
 (defn from-api* [api-root opts]
   (json/parse-string

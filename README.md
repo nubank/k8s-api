@@ -1,44 +1,130 @@
 # kubernetes-api
 
-FIXME: description
+kubernetes-api is a Clojure library that acts as a kubernetes client
 
-## Installation
+## Motivation
 
-Download from http://example.com/FIXME.
+We had a good experience with 
+ [cognitect-labs/aws-api](https://github.com/cognitect-labs/aws-api), and missed 
+ something like that for Kubernetes API. We had some client libraries that 
+ generated a lot of code, but it lacked discoverability and documentation.
+
+### clojure.deps
+```clojure
+{:deps {nubank/kubernetes-api {:mvn/version "0.1.0-SNAPSHOT"}}}
+```
+
+### Leiningen
+```clojure
+[nubank/kubernetes-api "0.1.0-SNAPSHOT"]
+```
+
+```clojure
+;; In your ns statement
+(ns my.ns
+  (:require [kubernetes-api.core :as k8s]))
+```
+
 
 ## Usage
+### Instantiate a client
 
-FIXME: explanation
+There're multiple options for authentication while instantiating a client. You 
+can explicit set a token:
+```clojure
+(def k8s (k8s/client "http://some.host" {:token "..."}))
+```
 
-    $ java -jar kubernetes-api-0.1.0-standalone.jar [args]
+Or a function that returns the token
 
-## Options
+```clojure
+(def k8s (k8s/client "http://some.host" {:token-fn (constantly "...")}))
+```
 
-FIXME: listing of options this app accepts.
+You can also define client certificates
+```clojure
+(def k8s (k8s/client "http://some.host" {:ca-cert     "some/path/ca-docker.crt"
+                                         :client-cert "/some/path/client-cert.pem"
+                                         :client-key  "/some/path/client-java.key"}))
+```
 
-## Examples
+### Discover
+You can list all operations with
+```clojure
+(k8s/explore k8s)
+```
 
-...
+or specify a specific entity
+```clojure
+(k8s/explore k8s :Deployment)
+;=> 
+[:Deployment
+ [:get "read the specified Deployment"]
+ [:update "replace the specified Deployment"]
+ [:delete "delete a Deployment"]
+ [:patch "partially update the specified Deployment"]
+ [:list "list or watch objects of kind Deployment"]
+ [:create "create a Deployment"]
+ [:deletecollection "delete collection of Deployment"]
+ [:list-all "list or watch objects of kind Deployment"]]
+```
 
-### Bugs
+get info on an operation
+```clojure
+(k8s/info k8s {:kind :Deployment
+               :action :create})
+;=>
+{:summary "create a Deployment",
+ :parameters {:namespace java.lang.String,
+              #schema.core.OptionalKey{:k :pretty} (maybe Str),
+              #schema.core.OptionalKey{:k :dry-run} (maybe Str),
+              #schema.core.OptionalKey{:k :field-manager} (maybe Str),
+              :body ...},
+ :returns {200 {#schema.core.OptionalKey{:k :apiVersion} (maybe Str),
+                #schema.core.OptionalKey{:k :kind} (maybe Str),
+                #schema.core.OptionalKey{:k :metadata} ...,
+                #schema.core.OptionalKey{:k :spec} ...,
+                #schema.core.OptionalKey{:k :status} ...},
+           201 {#schema.core.OptionalKey{:k :apiVersion} (maybe Str),
+                #schema.core.OptionalKey{:k :kind} (maybe Str),
+                #schema.core.OptionalKey{:k :metadata} ...,
+                #schema.core.OptionalKey{:k :spec} ...,
+                #schema.core.OptionalKey{:k :status} ...},
+           202 {#schema.core.OptionalKey{:k :apiVersion} (maybe Str),
+                #schema.core.OptionalKey{:k :kind} (maybe Str),
+                #schema.core.OptionalKey{:k :metadata} ...,
+                #schema.core.OptionalKey{:k :spec} ...,
+                #schema.core.OptionalKey{:k :status} ...},
+           401 Any}}
+```
 
-...
 
-### Any Other Sections
-### That You Think
-### Might be Useful
+### Invoke
 
-## License
+You can call an operation with 
+```clojure
+(k8s/invoke k8s {:kind    :ConfigMap
+                 :action  :create
+                 :request {:namespace "default"
+                           :body      {:apiVersion "v1"
+                                       :data       {"foo" "bar"}}}})
+```
 
-Copyright © 2019 FIXME
+invoke it will return the body, with `:request` and `:response` in metadata
+```clojure
+(meta (k8s/invoke ...))
+;=>
+{:request ...
+ :response {:status ...
+            :body ...}}
+```
 
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0.
+You can debug the request map with
+```clojure
+(k8s/request k8s {:kind    :ConfigMap
+                  :action  :create
+                  :request {:namespace "default"
+                            :body      {:apiVersion "v1"
+                                        :data       {"foo" "bar"}}}})
+```
 
-This Source Code may also be made available under the following Secondary
-Licenses when the conditions for such availability set forth in the Eclipse
-Public License, v. 2.0 are satisfied: GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or (at your
-option) any later version, with the GNU Classpath Exception which is available
-at https://www.gnu.org/software/classpath/license.html.

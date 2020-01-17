@@ -1,6 +1,6 @@
-(defproject kubernetes-api "0.1.0-SNAPSHOT"
+(defproject nubank/kubernetes-api "0.1.0-SNAPSHOT"
   :description "A library to talk with kubernetes api"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/nubank/kubernetes-api"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :plugins [[lein-cljfmt "0.5.7"]
