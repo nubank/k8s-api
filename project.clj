@@ -16,7 +16,7 @@
   :resource-paths ["resources"]
   :target-path "target/%s"
   :aliases {"lint"     ["do" ["cljfmt" "check"] ["nsorg"] ["kibit"]]
-            "lint-fix" ["do" ["cljfmt" "fix"] ["nsorg" "--replace"]]}
+            "lint-fix" ["do" ["cljfmt" "fix"] ["nsorg" "--replace"] ["kibit" "--replace"]]}
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[nubank/matcher-combinators "1.2.7"]
                                   [mockfn "0.5.0"]]}})

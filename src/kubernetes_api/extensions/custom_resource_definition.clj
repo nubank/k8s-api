@@ -137,7 +137,7 @@
       (scale-subresource? resource)))
 
 (defn top-level-resources [resources]
-  (let [top-levels (filter (complement subresource?) resources)
+  (let [top-levels (remove subresource? resources)
         subresources (filter subresource? resources)]
     (mapv (fn [resource]
             (misc/assoc-some resource
@@ -151,12 +151,4 @@
 (defn swagger-from [extention-api
                     {:keys [resources] :as _api-resources}
                     {:keys [items] :as crds}]
-  {:paths (->> (mapcat (fn [resource]
-                         (single-resource-swagger extention-api resource
-                                                  (misc/find-first
-                                                   (fn [{{:keys [group version names]} :spec}]
-                                                     (and (= (:api extention-api) group)
-                                                          (= (:version extention-api) version)
-                                                          (= (:kind resource) (:kind names)))) items)))
-                       (top-level-resources resources))
-               (into {}))})
+  {:paths (into {} (mapcat (fn [resource] (single-resource-swagger extention-api resource (misc/find-first (fn [{{:keys [group version names]} :spec}] (and (= (:api extention-api) group) (= (:version extention-api) version) (= (:kind resource) (:kind names)))) items))) (top-level-resources resources)))})

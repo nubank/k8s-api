@@ -4,8 +4,7 @@
 
 (defn- new-ssl-engine
   [{:keys [ca-cert client-cert client-key]}]
-  (-> (ssl/ssl-context client-key client-cert ca-cert)
-      ssl/ssl-context->engine))
+  (ssl/ssl-context->engine (ssl/ssl-context client-key client-cert ca-cert)))
 
 (defn- client-certs? [{:keys [ca-cert client-cert client-key]}]
   (every? some? [ca-cert client-cert client-key]))

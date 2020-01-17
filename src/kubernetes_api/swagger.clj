@@ -16,8 +16,7 @@
   (update swagger :paths
           (fn [paths]
             (apply dissoc (concat [paths]
-                                  (->> (keys paths)
-                                       (filter #(string/includes? % "/watch"))))))))
+                                  (filter (fn* [p1__944608#] (string/includes? p1__944608# "/watch")) (keys paths)))))))
 
 (defn fix-k8s-verb
   "For some reason, the x-kubernetes-action given by the kubernetes api doesn't
