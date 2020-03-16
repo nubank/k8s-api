@@ -5,7 +5,8 @@
             [clojure.walk :as walk]
             [kubernetes-api.interceptors.auth :as interceptors.auth]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
-            [org.httpkit.client :as http]))
+            [org.httpkit.client :as http]
+            [clojure.java.io :as io]))
 
 (defn remove-watch-endpoints
   "Watch endpoints doesn't follow the http1.1 specification, so it will not work
@@ -96,7 +97,10 @@
     (keyword s)))
 
 (defn read []
-  (customized (json/parse-string (slurp "resources/kubernetes_api/swagger.json") keyword-except-paths)))
+  (customized (-> (io/resource "kubernetes_api/swagger.json")
+                  io/input-stream
+                  slurp
+                  (json/parse-string keyword-except-paths))))
 
 (defn from-api* [api-root opts]
   (json/parse-string
