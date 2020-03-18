@@ -36,17 +36,18 @@
 
 (def status-code->error-type (zipmap (vals error-type->status-code) (keys error-type->status-code)))
 
-(defn raise-exception [{:keys [body status] :as _response}]
+(defn raise-exception [{:keys [status] :as response}]
   (throw (ex-info (str "APIServer error: " status)
                   {:type (status-code->error-type status)
-                   :body body})))
+                   :response response})))
 
 (defn check-response
   "Checks the status code. If 400+, raises an exception, returns body otherwise"
   [response]
-  (if (status-error? (:status response))
-    (raise-exception response)
-    (:body response)))
+  (cond
+    (:error response) (throw (:error response))
+    (status-error? (:status response)) (raise-exception response)
+    :else (:body response)))
 
 (defn new [_]
   {:name  ::raise
