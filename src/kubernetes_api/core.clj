@@ -3,6 +3,7 @@
             [kubernetes-api.interceptors.auth :as interceptors.auth]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [kubernetes-api.internals.client :as internals.client]
+            [kubernetes-api.internals.martian :as internals.martian]
             [kubernetes-api.misc :as misc]
             [kubernetes-api.swagger :as swagger]
             [martian.core :as martian]
@@ -43,8 +44,8 @@
                                                      (swagger/read))
                                                  {:interceptors interceptors}))]
     (assoc k8s
-           ::api-group-list @(martian/response-for k8s :GetApiVersions)
-           ::core-api-versions @(martian/response-for k8s :GetCoreApiVersions))))
+           ::api-group-list (internals.martian/response-for k8s :GetApiVersions)
+           ::core-api-versions (internals.martian/response-for k8s :GetCoreApiVersions))))
 
 (defn invoke
   "Invoke a action on kubernetes api
@@ -61,7 +62,7 @@
                           :body {:apiVersion \"v1\", ...}})"
   [k8s {:keys [request] :as params}]
   (if-let [action (internals.client/find-preferred-route k8s (dissoc params :request))]
-    @(martian/response-for k8s action (or request {}))
+    (internals.martian/response-for k8s action (or request {}))
     (throw (ex-info "Could not find action" {:search (dissoc params :request)}))))
 
 (defn extend-client
@@ -70,10 +71,10 @@
   Example:
   (extend-client k8s {:api \"tekton.dev\" :version \"v1alpha1\"})"
   [k8s {:keys [api version] :as extension-api}]
-  (let [api-resources @(martian/response-for k8s :GetArbitraryApiResources
-                                             {:api     api
-                                              :version version})
-        crds @(martian/response-for k8s :ListApiextensionsV1beta1CustomResourceDefinition)]
+  (let [api-resources (internals.martian/response-for k8s :GetArbitraryApiResources
+                                                      {:api     api
+                                                       :version version})
+        crds (internals.martian/response-for k8s :ListApiextensionsV1beta1CustomResourceDefinition)]
     (internals.client/pascal-case-routes
      (update k8s
              :handlers #(concat % (martian.swagger/swagger->handlers
