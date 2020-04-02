@@ -1,4 +1,4 @@
-(defproject nubank/k8s-api "0.1.0-SNAPSHOT"
+(defproject nubank/k8s-api "0.1.0"
   :description "A library to talk with kubernetes api"
   :url "https://github.com/nubank/k8s-api"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -8,7 +8,7 @@
             [lein-nsorg "0.2.0"]]
   :cljfmt {:indents {providing [[:inner 0]]}}
   :dependencies [[org.clojure/clojure "1.10.0"]
-                 [martian "0.1.12-SNAPSHOT"]
+                 [martian "0.1.12-20191222.142233-2"]
                  [martian-httpkit "0.1.11"]
                  [io.forward/yaml "1.0.9"]
                  [less-awful-ssl "1.0.4"]]

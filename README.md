@@ -43,7 +43,7 @@ Or a function that returns the token
 
 You can also define client certificates
 ```clojure
-(def k8s (k8s/client "http://some.host" {:ca-cert     "some/path/ca-docker.crt"
+(def k8s (k8s/client "http://some.host" {:ca-cert     "/some/path/ca-docker.crt"
                                          :client-cert "/some/path/client-cert.pem"
                                          :client-key  "/some/path/client-java.key"}))
 ```
