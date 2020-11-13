@@ -63,11 +63,13 @@
     (all-namespaces-route? route-name) (keyword (str (name (handler-action handler)) "-all"))
     :else (handler-action handler)))
 
-(defn find-route [k8s {:keys [kind action all-namespaces?] :as _search-params}]
+(defn find-route [k8s {:keys [all-namespaces?] :as _search-params
+                       search-kind :kind
+                       search-action :action}]
   (->> (:handlers k8s)
        (filter (fn [handler]
-                 (and (or (= (keyword kind) (handler-kind handler)) (nil? kind))
-                      (or (= (keyword action) (handler-action handler)) (nil? action))
+                 (and (or (= (keyword search-kind) (kind handler)) (nil? search-kind))
+                      (or (= (keyword search-action) (action handler)) (nil? search-action))
                       (= (boolean all-namespaces?) (all-namespaces-route? (:route-name handler))))))
        (map :route-name)))
 
