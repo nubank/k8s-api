@@ -4,19 +4,19 @@ kubernetes-api is a Clojure library that acts as a kubernetes client
 
 ## Motivation
 
-We had a good experience with 
- [cognitect-labs/aws-api](https://github.com/cognitect-labs/aws-api), and missed 
- something like that for Kubernetes API. We had some client libraries that 
+We had a good experience with
+ [cognitect-labs/aws-api](https://github.com/cognitect-labs/aws-api), and missed
+ something like that for Kubernetes API. We had some client libraries that
  generated a lot of code, but it lacked discoverability and documentation.
 
 ### clojure.deps
 ```clojure
-{:deps {nubank/k8s-api {:mvn/version "0.1.0-SNAPSHOT"}}}
+{:deps {nubank/k8s-api {:mvn/version "0.1.2"}}}
 ```
 
 ### Leiningen
 ```clojure
-[nubank/k8s-api "0.1.0-SNAPSHOT"]
+[nubank/k8s-api "0.1.2"]
 ```
 
 ```clojure
@@ -29,7 +29,7 @@ We had a good experience with
 ## Usage
 ### Instantiate a client
 
-There're multiple options for authentication while instantiating a client. You 
+There're multiple options for authentication while instantiating a client. You
 can explicit set a token:
 ```clojure
 (def k8s (k8s/client "http://some.host" {:token "..."}))
@@ -57,7 +57,7 @@ You can list all operations with
 or specify a specific entity
 ```clojure
 (k8s/explore k8s :Deployment)
-;=> 
+;=>
 [:Deployment
  [:get "read the specified Deployment"]
  [:update "replace the specified Deployment"]
@@ -101,7 +101,7 @@ get info on an operation
 
 ### Invoke
 
-You can call an operation with 
+You can call an operation with
 ```clojure
 (k8s/invoke k8s {:kind    :ConfigMap
                  :action  :create
@@ -127,4 +127,3 @@ You can debug the request map with
                             :body      {:apiVersion "v1"
                                         :data       {"foo" "bar"}}}})
 ```
-
