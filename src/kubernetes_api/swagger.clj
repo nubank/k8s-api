@@ -74,6 +74,15 @@
                   :name   "version"
                   :schema {:type "string"}}]}})
 
+(defn fix-patch-object-definition
+  "Patch operations have the body property as the schema as an io.k8s.apimachinery.pkg.apis.meta.v1.Patch,
+  but this definition is a type object without any property, so it generates a `:body {}` that doesn't
+  allow us to pass anything to the PATCH operation.
+
+  Changing the type to `string` allow us to pass the patch data as a raw value"
+  [swagger]
+  (assoc-in swagger [:definitions :io.k8s.apimachinery.pkg.apis.meta.v1.Patch :type] "string"))
+
 (defn add-some-routes
   [swagger new-definitions new-routes]
   (-> swagger
@@ -87,6 +96,7 @@
   (-> swagger
       add-summary
       (add-some-routes {} arbitrary-api-resources-route)
+      fix-patch-object-definition
       fix-k8s-verb
       fix-consumes
       remove-watch-endpoints))
