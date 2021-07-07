@@ -40,6 +40,24 @@
            (swagger/fix-consumes
             {:paths {"/foo/bar" {:get {:consumes ["application/yaml"]}}}})))))
 
+(deftest fix-patch-object-definition-test
+  (testing "fixes patch object definition when it exists"
+    (is (= {:definitions {:io.k8s.apimachinery.pkg.apis.meta.v1.Patch
+                          {:description "Patch is provided to give a concrete name and type to the Kubernetes PATCH request body."
+                           :type        "string"}}}
+           (swagger/fix-patch-object-definition
+             {:definitions {:io.k8s.apimachinery.pkg.apis.meta.v1.Patch
+                            {:description "Patch is provided to give a concrete name and type to the Kubernetes PATCH request body."
+                             :type        "object"}}}))))
+  (testing "leave unaltered when it doesn't exist"
+    (is (= {:definitions {:io.k8s.apimachinery.pkg.api.resource.Quantity
+                          {:description "Quantity is a fixed-point representation of a number."
+                           :type        "string"}}}
+           (swagger/fix-patch-object-definition
+             {:definitions {:io.k8s.apimachinery.pkg.api.resource.Quantity
+                            {:description "Quantity is a fixed-point representation of a number."
+                             :type        "string"}}})))))
+
 (deftest add-summary-test
   (testing "copies description to summary if summary doesnt exists"
     (is (= {:paths {"/foo/bar" {:get {:description "foo"
