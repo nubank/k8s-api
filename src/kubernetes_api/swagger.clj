@@ -75,11 +75,20 @@
                   :schema {:type "string"}}]}})
 
 (defn fix-patch-object-definition
-  "Patch operations have the body property as the schema as an io.k8s.apimachinery.pkg.apis.meta.v1.Patch,
-  but this definition is a type object without any property, so it generates a `:body {}` that doesn't
-  allow us to pass anything to the PATCH operation.
+  "Patch operations have an 'io.k8s.apimachinery.pkg.apis.meta.v1.Patch' as the 'body' parameter
+  schema definition, but this definition is of the type `object` without any property, so it generates
+  a ':body {}' in the client schema that doesn't allow to pass anything in the body for
+  a PATCH operation.
 
-  Changing the type to `string` allow us to pass the patch data as a raw value"
+  Changing the type to 'string' is the approach used by clients in other languages and will
+  allow to pass the request body data as a raw value. Official Kubernetes Java Client also treats
+  this way.
+
+  More details about this behavior can be found here:
+  https://github.com/kubernetes/kubernetes/issues/54332
+  https://github.com/kubernetes-client/gen
+  https://github.com/kubernetes-client/gen/pull/140
+  "
   [swagger]
   (let [v1-patch :io.k8s.apimachinery.pkg.apis.meta.v1.Patch]
     (if (contains? (:definitions swagger) v1-patch)
