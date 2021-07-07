@@ -81,7 +81,10 @@
 
   Changing the type to `string` allow us to pass the patch data as a raw value"
   [swagger]
-  (assoc-in swagger [:definitions :io.k8s.apimachinery.pkg.apis.meta.v1.Patch :type] "string"))
+  (let [v1-patch :io.k8s.apimachinery.pkg.apis.meta.v1.Patch]
+    (if (contains? (:definitions swagger) v1-patch)
+      (assoc-in swagger [:definitions v1-patch :type] "string")
+      swagger)))
 
 (defn add-some-routes
   [swagger new-definitions new-routes]
