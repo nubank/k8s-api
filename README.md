@@ -11,12 +11,12 @@ We had a good experience with
 
 ### clojure.deps
 ```clojure
-{:deps {nubank/k8s-api {:mvn/version "0.1.2"}}}
+{:deps {nubank/k8s-api {:mvn/version "0.1.3"}}}
 ```
 
 ### Leiningen
 ```clojure
-[nubank/k8s-api "0.1.2"]
+[nubank/k8s-api "0.1.3"]
 ```
 
 ```clojure
@@ -101,12 +101,13 @@ get info on an operation
 
 ### Invoke
 
-You can call an operation with
+You can call an operation with:
 ```clojure
 (k8s/invoke k8s {:kind    :ConfigMap
                  :action  :create
                  :request {:namespace "default"
                            :body      {:apiVersion "v1"
+                                       :metadata   {:name "my-awesome-cm"}
                                        :data       {"foo" "bar"}}}})
 ```
 
@@ -119,11 +120,28 @@ invoke it will return the body, with `:request` and `:response` in metadata
             :body ...}}
 ```
 
-You can debug the request map with
+You can debug the request map with:
 ```clojure
 (k8s/request k8s {:kind    :ConfigMap
                   :action  :create
                   :request {:namespace "default"
                             :body      {:apiVersion "v1"
+                                        :metadata   {:name "my-awesome-cm"}
                                         :data       {"foo" "bar"}}}})
+```
+
+#### Invoking PATCH operations
+
+The `:body` parameter in PATCH is a bit different from the other operations, it must be a `String`.
+It's due to the need for the request body to comply to the chosen patch strategy (that can be a
+Strategic Merge Patch, a JSON Patch or a JSON Merge Patch. More details
+[here](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/)).
+
+You can call a PATCH operation with:
+```clojure
+(k8s/invoke k8s {:kind    :ConfigMap
+                 :action  :patch
+                 :request {:namespace "default"
+                           :name      "my-awesome-cm"
+                           :body      "{\"data\": {\"foo\": \"another-value\"}}"}})
 ```
