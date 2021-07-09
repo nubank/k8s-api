@@ -77,22 +77,19 @@
 (defn fix-patch-object-definition
   "Patch operations have an 'io.k8s.apimachinery.pkg.apis.meta.v1.Patch' as the 'body' parameter
   schema definition, but this definition is of the type `object` without any property, so it generates
-  a ':body {}' in the client schema that doesn't allow to pass anything in the body for
-  a PATCH operation.
+  a ':body {}' in the client schema that doesn't allow to pass anything in the body for a PATCH operation.
 
-  Changing the type to 'string' is the approach used by clients in other languages and will
-  allow to pass the request body data as a raw value. Official Kubernetes Java Client also treats
-  this way.
+  Removing the type from this definition generates a ':body Any' in the client schema that
+  allow to pass the request body data as a raw string value.
 
   More details about this behavior can be found here:
   https://github.com/kubernetes/kubernetes/issues/54332
   https://github.com/kubernetes-client/gen
-  https://github.com/kubernetes-client/gen/pull/140
   "
   [swagger]
   (let [v1-patch :io.k8s.apimachinery.pkg.apis.meta.v1.Patch]
     (if (contains? (:definitions swagger) v1-patch)
-      (assoc-in swagger [:definitions v1-patch :type] "string")
+      (update-in swagger [:definitions v1-patch] dissoc :type)
       swagger)))
 
 (defn add-some-routes
