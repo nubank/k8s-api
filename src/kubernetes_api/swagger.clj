@@ -80,6 +80,66 @@
       (update :paths #(merge % new-routes))
       (update :definitions #(merge % new-definitions))))
 
+(defn replace-swagger-body-schema [params new-body-schema]
+  (mapv (fn [param]
+          (if (= "body" (:name param))
+            (assoc param :schema new-body-schema)
+            param))
+        params))
+
+(def rfc6902-json-schema
+  {:type "array"
+   :items {:type "object"
+           :required [:op :path :value]
+           :properties {:op {:type "string"
+                             :enum ["add" "remove" "replace" "move" "test"]}
+                        :path {:type "string"}
+                        :value {}}}})
+
+(defn patch-operations [operation]
+  (letfn [(custom-operation [{:keys [schema content-type action summary route-name-suffix]}]
+            (-> operation
+                (update :parameters #(replace-swagger-body-schema % schema))
+                (update :operationId #(str % route-name-suffix))
+                (assoc :consumes [content-type])
+                (assoc :summary (format (or summary (:summary operation)) (-> operation :x-kubernetes-group-version-kind :kind)))
+                (assoc :x-kubernetes-action action)))]
+    {:patch/json (custom-operation {:schema rfc6902-json-schema
+                                    :content-type "application/json-patch+json"
+                                    :summary "update the specified %s using RFC6902"
+                                    :route-name-suffix "JsonPatch"
+                                    :action "patch/json"})
+     :patch/strategic (custom-operation {:schema {}
+                                         :content-type "application/strategic-merge-patch+json"
+                                         :summary "update the specified %s using a smart strategy"
+                                         :route-name-suffix "StrategicMerge"
+                                         :action "patch/strategic"})
+     :patch/json-merge (custom-operation {:schema {}
+                                          :content-type "application/merge-patch+json"
+                                          :summary "update the specified %s using RFC7286"
+                                          :route-name-suffix "JsonMerge"
+                                          :action "patch/json-merge"})
+     :apply/server (custom-operation {:schema {}
+                                      :content-type "application/apply-patch+yaml"
+                                      :summary "create or update the specified %s using server side apply"
+                                      :route-name-suffix "ApplyServerSide"
+                                      :action "apply/server"})}))
+
+(defn update-path-item [swagger update-fn]
+  (update swagger :paths
+          (fn [paths]
+            (into {} (map (fn [[path item]] [path (update-fn item)]) paths)))))
+
+(defn add-patch-routes [swagger]
+  (-> swagger
+      (update-path-item (fn [item]
+                          (->> item
+                               (mapcat (fn [[verb operation]]
+                                         (if (= verb :patch)
+                                           (patch-operations operation)
+                                           [[verb operation]])))
+                               (into {}))))))
+
 (defn ^:private customized
   "Receives a kubernetes swagger, adds a description to the routes and some
   generic routes"
@@ -89,7 +149,8 @@
       (add-some-routes {} arbitrary-api-resources-route)
       fix-k8s-verb
       fix-consumes
-      remove-watch-endpoints))
+      remove-watch-endpoints
+      add-patch-routes))
 
 (defn ^:private keyword-except-paths [s]
   (if (string/starts-with? s "/")

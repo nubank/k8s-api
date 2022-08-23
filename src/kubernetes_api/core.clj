@@ -1,14 +1,26 @@
 (ns kubernetes-api.core
   (:require [kubernetes-api.extensions.custom-resource-definition :as crd]
             [kubernetes-api.interceptors.auth :as interceptors.auth]
+            [kubernetes-api.interceptors.encoders :as interceptors.encoders]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [kubernetes-api.internals.client :as internals.client]
             [kubernetes-api.internals.martian :as internals.martian]
             [kubernetes-api.misc :as misc]
             [kubernetes-api.swagger :as swagger]
             [martian.core :as martian]
+            [martian.interceptors :as interceptors]
+            [martian.encoders :as encoders]
             [martian.httpkit :as martian-httpkit]
             martian.swagger))
+
+(defn patch-encoders []
+  (let [json (get (encoders/default-encoders) "application/json")]
+    (merge
+     (encoders/default-encoders)
+     {"application/merge-patch+json" json
+      "application/strategic-merge-patch+json" json
+      "application/apply-patch+yaml" json
+      "application/json-patch+json" json})))
 
 (defn client
   "Creates a Kubernetes Client compliant with martian api and its helpers
@@ -37,8 +49,11 @@
   (let [interceptors (concat [(interceptors.raise/new opts)
                               (interceptors.auth/new opts)]
                              (:interceptors opts)
-                             martian-httpkit/default-interceptors)
-        k8s          (internals.client/pascal-case-routes
+                             martian/default-interceptors
+                             [(interceptors.encoders/new)
+                              interceptors/default-coerce-response
+                              martian-httpkit/perform-request])
+        k8s          (internals.client/transform
                       (martian/bootstrap-swagger host
                                                  (or (swagger/from-api host opts)
                                                      (swagger/read))
@@ -123,4 +138,3 @@
     schemas"
   [k8s params]
   (martian/explore k8s (internals.client/find-preferred-route k8s (dissoc params :request))))
-

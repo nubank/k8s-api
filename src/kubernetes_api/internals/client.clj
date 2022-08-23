@@ -8,6 +8,19 @@
           (fn [handlers]
             (mapv #(update % :route-name csk/->PascalCase) handlers))))
 
+(defn patch-http-verb [k8s]
+  (assoc k8s :handlers
+         (mapv (fn [{:keys [method] :as handler}]
+                 (if (#{"apply" "patch"} (namespace method))
+                   (assoc handler :method :patch)
+                   handler))
+               (:handlers k8s))))
+
+(defn transform [k8s]
+  (-> k8s
+      pascal-case-routes
+      patch-http-verb))
+
 (defn swagger-definition-for-route [k8s route-name]
   (->> (:handlers k8s)
        (misc/find-first #(= route-name (:route-name %)))
@@ -31,6 +44,9 @@
 (defn scale-resource [route-name]
   (second (re-matches #".*Namespaced([A-Za-z]*)Scale" (name route-name))))
 
+(defn status-route? [route-name]
+  (re-matches #".*Status(JsonPatch|StrategicMerge|JsonMerge|ApplyServerSide)?" (name route-name)))
+
 (defn kind
   "Returns a kubernetes-api kind. Similar to handler-kind, but deals with some
   corner-cases. Returns a keyword, that is namespaced only if there's a
@@ -41,7 +57,7 @@
   [{:keys [route-name] :as handler}]
   (let [kind (some-> (handler-kind handler) name)]
     (cond
-      (string/ends-with? (name route-name) "Status") (keyword kind "Status")
+      (status-route? route-name) (keyword kind "Status")
       (string/ends-with? (name route-name) "Scale") (keyword (scale-resource route-name) "Scale")
       :else (keyword kind))))
 
@@ -118,4 +134,3 @@
                                                    :action (handler-action handler)})]
     (and (= (handler-version handler) (version-of k8s preffered-route))
          (= (handler-group handler) (group-of k8s preffered-route)))))
-
