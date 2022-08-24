@@ -1,5 +1,6 @@
 (ns kubernetes-api.swagger-test
   (:require [clojure.test :refer :all]
+            [matcher-combinators.test :refer [match?]]
             [kubernetes-api.swagger :as swagger]))
 
 (deftest remove-watch-endpoints-test
@@ -39,6 +40,38 @@
     (is (= {:paths {"/foo/bar" {:get {:consumes ["application/yaml"]}}}}
            (swagger/fix-consumes
             {:paths {"/foo/bar" {:get {:consumes ["application/yaml"]}}}})))))
+
+(deftest add-patch-routes-test
+  (testing "for each patch operation, add all patch strategies"
+    (is (match? {:paths {"/foo/bar" {:patch/json {:parameters [{:name "body"
+                                                                :in "body"
+                                                                :schema swagger/rfc6902-json-schema}],
+                                                  :operationId "PatchCoreV1ResourceJsonPatch"
+                                                  :consumes ["application/json-patch+json"]
+                                                  :x-kubernetes-action "patch/json"}
+                                     :patch/json-merge {:parameters [{:name "body"
+                                                                      :in "body"
+                                                                      :schema {}}]
+                                                        :operationId "PatchCoreV1ResourceJsonMerge"
+                                                        :consumes ["application/merge-patch+json"]
+                                                        :x-kubernetes-action "patch/json-merge"}
+                                     :patch/strategic {:parameters [{:name "body"
+                                                                     :in "body"
+                                                                     :schema {}}]
+                                                       :operationId "PatchCoreV1ResourceStrategicMerge"
+                                                       :consumes ["application/strategic-merge-patch+json"]
+                                                       :x-kubernetes-action "patch/strategic"}
+                                     :apply/server {:parameters [{:name "body"
+                                                                  :in "body"
+                                                                  :schema {}}]
+                                                    :operationId "PatchCoreV1ResourceApplyServerSide"
+                                                    :consumes ["application/apply-patch+yaml"]
+                                                    :x-kubernetes-action "apply/server"}}}}
+                (swagger/add-patch-routes
+                 {:paths {"/foo/bar" {:patch {:operationId "PatchCoreV1Resource"
+                                              :parameters [{:name "body"
+                                                            :in "body"
+                                                            :schema 'broken}]}}}})))))
 
 (deftest add-summary-test
   (testing "copies description to summary if summary doesnt exists"

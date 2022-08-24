@@ -1,6 +1,7 @@
 (ns kubernetes-api.internals.client-test
   (:require [clojure.test :refer :all]
             [kubernetes-api.internals.client :as internals.client]
+            [matcher-combinators.test :refer [match?]]
             [matcher-combinators.matchers :as m]))
 
 (deftest pascal-case-routes-test
@@ -8,6 +9,28 @@
                      {:route-name :DuDuduEdu}]}
          (internals.client/pascal-case-routes {:handlers [{:route-name :foo-bar}
                                                           {:route-name :du-dudu-edu}]}))))
+
+(deftest patch-http-verb-test
+  (is (= {:handlers [{:route-name :Route66
+                      :method :patch}
+                     {:route-name :Route67
+                      :method :patch}
+                     {:route-name :Route68
+                      :method :patch}
+                     {:route-name :Route69
+                      :method :patch}
+                     {:route-name :Route70
+                      :method :get}]}
+         (internals.client/patch-http-verb {:handlers [{:route-name :Route66
+                                                        :method :patch/json}
+                                                       {:route-name :Route67
+                                                        :method :patch/json-merge}
+                                                       {:route-name :Route68
+                                                        :method :patch/strategic}
+                                                       {:route-name :Route69
+                                                        :method :apply/server}
+                                                       {:route-name :Route70
+                                                        :method :get}]}))))
 
 (deftest swagger-definition-for-route-test
   (is (= 'swagger-definition
@@ -40,11 +63,29 @@
   (is (= :Deployment
          (internals.client/kind {:route-name         :CreateV1NamespacedDeployment
                                  :swagger-definition {:x-kubernetes-group-version-kind {:kind "Deployment"}}})))
+
   (is (= :Deployment/Scale
          (internals.client/kind {:route-name         :CreateAutoscalingNamespacedDeploymentScale
                                  :swagger-definition {:x-kubernetes-group-version-kind {:kind "Scale"}}})))
+
   (is (= :Deployment/Status
          (internals.client/kind {:route-name         :CreateV1NamespacedDeploymentStatus
+                                 :swagger-definition {:x-kubernetes-group-version-kind {:kind "Deployment"}}})))
+
+  (is (= :Deployment/Status
+         (internals.client/kind {:route-name         :CreateV1NamespacedDeploymentStatusJsonPatch
+                                 :swagger-definition {:x-kubernetes-group-version-kind {:kind "Deployment"}}})))
+
+  (is (= :Deployment/Status
+         (internals.client/kind {:route-name         :CreateV1NamespacedDeploymentStatusStrategicMerge
+                                 :swagger-definition {:x-kubernetes-group-version-kind {:kind "Deployment"}}})))
+
+  (is (= :Deployment/Status
+         (internals.client/kind {:route-name         :CreateV1NamespacedDeploymentStatusJsonMerge
+                                 :swagger-definition {:x-kubernetes-group-version-kind {:kind "Deployment"}}})))
+
+  (is (= :Deployment/Status
+         (internals.client/kind {:route-name         :CreateV1NamespacedDeploymentStatusApplyServerSide
                                  :swagger-definition {:x-kubernetes-group-version-kind {:kind "Deployment"}}}))))
 
 (deftest action-test
