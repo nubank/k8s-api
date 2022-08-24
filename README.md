@@ -106,7 +106,7 @@ You can call an operation with
 (k8s/invoke k8s {:kind    :ConfigMap
                  :action  :create
                  :request {:namespace "default"
-                           :body      {:apiVersion "v1"
+                           :body      {:api-version "v1"
                                        :data       {"foo" "bar"}}}})
 ```
 
@@ -124,6 +124,9 @@ You can debug the request map with
 (k8s/request k8s {:kind    :ConfigMap
                   :action  :create
                   :request {:namespace "default"
-                            :body      {:apiVersion "v1"
+                            :body      {:api-version "v1"
                                         :data       {"foo" "bar"}}}})
 ```
+
+If you want to read more about all different patch strategies Kubernetes offers,
+[check this document](doc/kubernetes-patch-strategies.md)
