@@ -38,7 +38,7 @@ conceptual differences. You have the full description [here][rfc7386].
 
 The body of the request is similar to a diff, meaning that you only need to
 describe what is going to change. This strategy tries to move away from the JSON
-Patch imperiative approach by allowing you to describe a data structure similar
+Patch imperative approach by allowing you to describe a data structure similar
 to the one you're patching.
 
 In the Kubernetes API, this is done by setting Content-Type header to
