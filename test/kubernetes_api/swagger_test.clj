@@ -51,24 +51,28 @@
                                                   :x-kubernetes-action "patch/json"}
                                      :patch/json-merge {:parameters [{:name "body"
                                                                       :in "body"
-                                                                      :schema {}}]
+                                                                      :schema 'schema}]
                                                         :operationId "PatchCoreV1ResourceJsonMerge"
                                                         :consumes ["application/merge-patch+json"]
                                                         :x-kubernetes-action "patch/json-merge"}
                                      :patch/strategic {:parameters [{:name "body"
                                                                      :in "body"
-                                                                     :schema {}}]
+                                                                     :schema 'schema}]
                                                        :operationId "PatchCoreV1ResourceStrategicMerge"
                                                        :consumes ["application/strategic-merge-patch+json"]
                                                        :x-kubernetes-action "patch/strategic"}
                                      :apply/server {:parameters [{:name "body"
                                                                   :in "body"
-                                                                  :schema {}}]
+                                                                  :schema 'schema}]
                                                     :operationId "PatchCoreV1ResourceApplyServerSide"
                                                     :consumes ["application/apply-patch+yaml"]
                                                     :x-kubernetes-action "apply/server"}}}}
                 (swagger/add-patch-routes
-                 {:paths {"/foo/bar" {:patch {:operationId "PatchCoreV1Resource"
+                  {:paths {"/foo/bar" {:put {:parameters [{:name "body"
+                                                            :in "body"
+                                                            :schema 'schema}]
+                                             :x-kubernetes-action "update"}
+                                       :patch {:operationId "PatchCoreV1Resource"
                                               :parameters [{:name "body"
                                                             :in "body"
                                                             :schema 'broken}]}}}})))))

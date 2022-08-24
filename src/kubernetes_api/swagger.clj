@@ -96,7 +96,7 @@
                         :path {:type "string"}
                         :value {}}}})
 
-(defn patch-operations [operation]
+(defn patch-operations [operation update-schema]
   (letfn [(custom-operation [{:keys [schema content-type action summary route-name-suffix]}]
             (-> operation
                 (update :parameters #(replace-swagger-body-schema % schema))
@@ -109,17 +109,17 @@
                                     :summary "update the specified %s using RFC6902"
                                     :route-name-suffix "JsonPatch"
                                     :action "patch/json"})
-     :patch/strategic (custom-operation {:schema {}
+     :patch/strategic (custom-operation {:schema update-schema
                                          :content-type "application/strategic-merge-patch+json"
                                          :summary "update the specified %s using a smart strategy"
                                          :route-name-suffix "StrategicMerge"
                                          :action "patch/strategic"})
-     :patch/json-merge (custom-operation {:schema {}
+     :patch/json-merge (custom-operation {:schema update-schema
                                           :content-type "application/merge-patch+json"
                                           :summary "update the specified %s using RFC7286"
                                           :route-name-suffix "JsonMerge"
                                           :action "patch/json-merge"})
-     :apply/server (custom-operation {:schema {}
+     :apply/server (custom-operation {:schema update-schema
                                       :content-type "application/apply-patch+yaml"
                                       :summary "create or update the specified %s using server side apply"
                                       :route-name-suffix "ApplyServerSide"
@@ -128,15 +128,24 @@
 (defn update-path-item [swagger update-fn]
   (update swagger :paths
           (fn [paths]
-            (into {} (map (fn [[path item]] [path (update-fn item)]) paths)))))
+            (into {} (map (fn [[path item]] [path (update-fn path item)]) paths)))))
+
+(defn find-update-body-schema [swagger path]
+  (->> (select-keys (get-in swagger [:paths path]) [:put :post])
+       vals
+       (filter (fn [{:keys [x-kubernetes-action]}] (= x-kubernetes-action "update")))
+       (mapcat :parameters)
+       (filter (fn [param] (= (:name param) "body")))
+       (map :schema)
+       first))
 
 (defn add-patch-routes [swagger]
   (-> swagger
-      (update-path-item (fn [item]
+      (update-path-item (fn [path item]
                           (->> item
                                (mapcat (fn [[verb operation]]
                                          (if (= verb :patch)
-                                           (patch-operations operation)
+                                           (patch-operations operation (find-update-body-schema swagger path))
                                            [[verb operation]])))
                                (into {}))))))
 

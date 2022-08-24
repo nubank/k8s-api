@@ -9,18 +9,9 @@
             [kubernetes-api.swagger :as swagger]
             [martian.core :as martian]
             [martian.interceptors :as interceptors]
-            [martian.encoders :as encoders]
             [martian.httpkit :as martian-httpkit]
             martian.swagger))
 
-(defn patch-encoders []
-  (let [json (get (encoders/default-encoders) "application/json")]
-    (merge
-     (encoders/default-encoders)
-     {"application/merge-patch+json" json
-      "application/strategic-merge-patch+json" json
-      "application/apply-patch+yaml" json
-      "application/json-patch+json" json})))
 
 (defn client
   "Creates a Kubernetes Client compliant with martian api and its helpers
