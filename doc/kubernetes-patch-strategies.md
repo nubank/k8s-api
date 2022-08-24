@@ -87,7 +87,7 @@ Note that this strategy is not available for Custom Resource Definitions yet.
 ```
 
 Note that this strategy allow you to customize containers inside a Deployment,
-without having to worry about the order they are defined or the existance of
+without having to worry about the order they are defined or the existence of
 other containers.
 
 In the Kubernetes API, this is done by setting Content-Type header to
