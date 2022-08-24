@@ -1,7 +1,7 @@
 # Kubernetes Patch Strategies
 
 The official Kubernetes documentation has great information about patches and
-their uses [here][k8s-doc]. This document it's an overview to what to expect and
+their uses [here][k8s-doc]. This document is an overview to what to expect and
 how to use them.
 
 ## JSON Patch RFC-6902
