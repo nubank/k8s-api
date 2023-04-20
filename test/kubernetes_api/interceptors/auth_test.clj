@@ -1,9 +1,8 @@
 (ns kubernetes-api.interceptors.auth-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [kubernetes-api.interceptors.auth :as interceptors.auth]
-            [matcher-combinators.matchers :as m]
-            [matcher-combinators.test]
-            [mockfn.core :refer [providing]]))
+            [matcher-combinators.test :refer [match?]]
+            [mockfn.test :refer [providing]]))
 
 (deftest auth-test
   (testing "request with basic-auth"
