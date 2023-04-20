@@ -1,7 +1,7 @@
 (ns kubernetes-api.extensions.custom-resource-definition-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [kubernetes-api.extensions.custom-resource-definition :as crd]
-            [matcher-combinators.test]))
+            [matcher-combinators.test :refer [match?]]))
 
 (deftest new-route-name-test
   (testing "list"

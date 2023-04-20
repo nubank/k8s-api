@@ -10,6 +10,10 @@
             [martian.httpkit :as martian-httpkit]
             martian.swagger))
 
+(defn default-interceptors [opts]
+  [(interceptors.auth/new opts)
+   interceptors.raise/interceptor])
+
 (defn client
   "Creates a Kubernetes Client compliant with martian api and its helpers
 
@@ -34,9 +38,7 @@
            {:basic-auth {:username \"admin\"
                          :password \"1234\"}})"
   [host opts]
-  (let [interceptors (concat [(interceptors.raise/new opts)
-                              (interceptors.auth/new opts)]
-                             (:interceptors opts)
+  (let [interceptors (concat (:interceptors opts (default-interceptors opts))
                              martian-httpkit/default-interceptors)
         k8s          (internals.client/pascal-case-routes
                       (martian/bootstrap-swagger host
@@ -123,4 +125,3 @@
     schemas"
   [k8s params]
   (martian/explore k8s (internals.client/find-preferred-route k8s (dissoc params :request))))
-

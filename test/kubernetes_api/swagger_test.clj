@@ -1,5 +1,5 @@
 (ns kubernetes-api.swagger-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [kubernetes-api.swagger :as swagger]))
 
 (deftest remove-watch-endpoints-test

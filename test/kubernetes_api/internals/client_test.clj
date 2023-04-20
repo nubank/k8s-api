@@ -1,6 +1,7 @@
 (ns kubernetes-api.internals.client-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing]]
             [kubernetes-api.internals.client :as internals.client]
+            [matcher-combinators.test :refer [match?]]
             [matcher-combinators.matchers :as m]))
 
 (deftest pascal-case-routes-test

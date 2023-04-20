@@ -1,10 +1,10 @@
 (ns kubernetes-api.interceptors.raise-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
-            [matcher-combinators.test]))
+            [matcher-combinators.test :refer [match? thrown-match?]]))
 
 (deftest raise-test
-  (let [{:keys [leave]} (interceptors.raise/new {})]
+  (let [{:keys [leave]} interceptors.raise/interceptor]
     (testing "should raise the body to be the response on 2xx status"
       (is (match?
            {:response {:my :body}}
