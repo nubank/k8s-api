@@ -49,7 +49,7 @@
     (status-error? (:status response)) (raise-exception response)
     :else (:body response)))
 
-(defn new [_]
+(def interceptor
   {:name  ::raise
    :leave (fn [{:keys [request response] :as _context}]
             (with-meta {:response (check-response response)}

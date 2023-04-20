@@ -4,7 +4,7 @@
             [matcher-combinators.test :refer [match? thrown-match?]]))
 
 (deftest raise-test
-  (let [{:keys [leave]} (interceptors.raise/new {})]
+  (let [{:keys [leave]} interceptors.raise/interceptor]
     (testing "should raise the body to be the response on 2xx status"
       (is (match?
            {:response {:my :body}}
