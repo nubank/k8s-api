@@ -1,6 +1,6 @@
 (ns kubernetes-api.interceptors.raise)
 
-(defn status-error? [status]
+(defn- status-error? [status]
   (or (nil? status) (>= status 400)))
 
 (def ^:private error-type->status-code
@@ -34,23 +34,30 @@
    :gateway-timeout               504
    :http-version-not-supported    505})
 
-(def status-code->error-type (zipmap (vals error-type->status-code) (keys error-type->status-code)))
+(def ^:private status-code->error-type (zipmap (vals error-type->status-code) (keys error-type->status-code)))
 
-(defn raise-exception [{:keys [status] :as response}]
-  (throw (ex-info (str "APIServer error: " status)
-                  {:type (status-code->error-type status)
-                   :response response})))
+(defn- make-exception [{:keys [status] :as response}]
+  (ex-info (str "APIServer error: " status)
+           {:type (status-code->error-type status)
+            :response response}))
 
 (defn check-response
   "Checks the status code. If 400+, raises an exception, returns body otherwise"
   [response]
   (cond
     (:error response) (throw (:error response))
-    (status-error? (:status response)) (raise-exception response)
+    (status-error? (:status response)) (throw (make-exception response))
     :else (:body response)))
+
+(defn- maybe-assoc-error [{{:keys [error status body] :as response} :response :as context}]
+  (cond
+    error                  (assoc context :kubernetes-api.core/error error)
+    (status-error? status) (assoc context :kubernetes-api.core/error (make-exception response))
+    :else {:response body}))
 
 (defn new [_]
   {:name  ::raise
-   :leave (fn [{:keys [request response] :as _context}]
-            (with-meta {:response (check-response response)}
-              {:request request :response response}))})
+   :leave (fn [context]
+            (with-meta
+              (maybe-assoc-error context)
+              (select-keys context [:request :response])))})

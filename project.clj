@@ -18,5 +18,5 @@
   :aliases {"lint"     ["do" ["cljfmt" "check"] ["nsorg"] ["kibit"]]
             "lint-fix" ["do" ["cljfmt" "fix"] ["nsorg" "--replace"] ["kibit" "--replace"]]}
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[nubank/matcher-combinators "1.2.7"]
-                                  [mockfn "0.5.0"]]}})
+             :dev {:dependencies [[nubank/matcher-combinators "3.8.5"]
+                                  [nubank/mockfn "0.7.0"]]}})
