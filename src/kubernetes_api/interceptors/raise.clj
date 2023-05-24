@@ -49,15 +49,15 @@
     (status-error? (:status response)) (throw (make-exception response))
     :else (:body response)))
 
-(defn- maybe-assoc-error [{{:keys [error status body] :as response} :response :as context}]
+(defn- maybe-assoc-error [{:keys [error status body] :as response}]
   (cond
-    error                  (assoc context :kubernetes-api.core/error error)
-    (status-error? status) (assoc context :kubernetes-api.core/error (make-exception response))
-    :else {:response body}))
+    error                  (assoc response :kubernetes-api.core/error error)
+    (status-error? status) (assoc response :kubernetes-api.core/error (make-exception response))
+    :else body))
 
 (defn new [_]
   {:name  ::raise
-   :leave (fn [context]
+   :leave (fn [{:keys [request response]}]
             (with-meta
-              (maybe-assoc-error context)
-              (select-keys context [:request :response])))})
+              {:response (maybe-assoc-error response)}
+              {:response response :request request}))})

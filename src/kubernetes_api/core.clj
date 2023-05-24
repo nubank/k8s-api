@@ -123,4 +123,3 @@
     schemas"
   [k8s params]
   (martian/explore k8s (internals.client/find-preferred-route k8s (dissoc params :request))))
-

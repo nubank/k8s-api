@@ -24,7 +24,7 @@
                                                                   :body   {:my :body}}})))))
 
     (testing "return an exception on 4XX responses"
-      (is (match? (m/via (comp ex-data :kubernetes-api.core/error)
+      (is (match? (m/via (comp ex-data :kubernetes-api.core/error :response)
                          {:type     :bad-request,
                           :response {:status 400}})
                   (run-interceptor raise-interceptor {:response {:status 400}}))))))
