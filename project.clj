@@ -1,4 +1,4 @@
-(defproject nubank/k8s-api "0.2.1-SNAPSHOT"
+(defproject nubank/k8s-api "0.3.0-SNAPSHOT"
   :description "A library to talk with kubernetes api"
   :url "https://github.com/nubank/k8s-api"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
