@@ -166,6 +166,10 @@
     s
     (keyword s)))
 
+(defn openapi-discovery-enabled?
+  [opts]
+  (not= :disabled (get-in opts [:openapi :discovery])))
+
 (defn read []
   (customized (-> (io/resource "kubernetes_api/swagger.json")
                   io/input-stream
@@ -182,6 +186,7 @@
 
 (defn from-api [api-root opts]
   (try
-    (customized (from-api* api-root opts))
+    (when (openapi-discovery-enabled? opts)
+      (customized (from-api* api-root opts)))
     (catch Exception _
       nil)))
