@@ -23,7 +23,11 @@
 
 (defn request-auth-params [{:keys [token-fn insecure?] :as opts}]
   (merge
-   {:insecure? (or insecure? false)}
+    {:insecure? (or insecure? false)
+     :sslengine (.createSSLEngine (doto (javax.net.ssl.SSLContext/getInstance "TLSv1.2")
+                   (.init nil
+                          (into-array javax.net.ssl.TrustManager [(less.awful.ssl/trust-manager (less.awful.ssl/trust-store "/Users/rafael.leal/.kube/ca-br-prod-s9-green.crt"))])
+                          nil)))}
    (cond
      (basic-auth? opts) {:basic-auth (basic-auth opts)}
      (token? opts) {:oauth-token (:token opts)}
