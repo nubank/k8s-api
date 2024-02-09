@@ -11,12 +11,12 @@ We had a good experience with
 
 ### clojure.deps
 ```clojure
-{:deps {nubank/k8s-api {:mvn/version "0.1.2"}}}
+{:deps {nubank/k8s-api {:mvn/version "0.3.0"}}}
 ```
 
 ### Leiningen
 ```clojure
-[nubank/k8s-api "0.1.2"]
+[nubank/k8s-api "0.3.0"]
 ```
 
 ```clojure
@@ -46,6 +46,15 @@ You can also define client certificates
 (def k8s (k8s/client "http://some.host" {:ca-cert     "/some/path/ca-docker.crt"
                                          :client-cert "/some/path/client-cert.pem"
                                          :client-key  "/some/path/client-java.key"}))
+```
+
+#### OpenAPI config
+It's possible but NOT RECOMMENDED to disable the OpenAPI specification discovery. This will prevent requests to
+`/openapi/...` endpoints and use the specification from the resources folder. This specification has no guarantees in
+ terms of versioning, so it will be outdated.
+```clojure
+(def k8s (k8s/client "http://some.host" {:token "..." 
+                                         :openapi {:discovery :disabled}}))
 ```
 
 ### Discover
