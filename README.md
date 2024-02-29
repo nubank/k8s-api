@@ -49,12 +49,26 @@ You can also define client certificates
 ```
 
 #### OpenAPI config
+
+##### Discovery
+
 It's possible but NOT RECOMMENDED to disable the OpenAPI specification discovery. This will prevent requests to
 `/openapi/...` endpoints and use the specification from the resources folder. This specification has no guarantees in
  terms of versioning, so it will be outdated.
 ```clojure
-(def k8s (k8s/client "http://some.host" {:token "..." 
+(def k8s (k8s/client "http://some.host" {:token "..."
                                          :openapi {:discovery :disabled}}))
+```
+
+##### Filter paths from api
+
+You can filter the paths from the OpenAPI specification. This is useful when you want to use a specific version of the
+api, or when you want to use a specific group of resources.
+
+```clojure
+(def k8s (k8s/client "http://some.host" {:token "..."
+                                         :openapi {:api "some.api"
+                                                   :version "v1"}}))
 ```
 
 ### Discover

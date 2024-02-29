@@ -32,6 +32,11 @@
   [Custom]
   :interceptors - additional interceptors to the martian's client
 
+  [OpenAPI]
+  :openapi/:discovery - :disabled to avoid fetching openapi schema from k8s
+  :openapi/:api - the api group to fetch the schema from
+  :openapi/:version - the version of the api group to fetch the schema from
+
   Example:
   (client \"https://kubernetes.docker.internal:6443\"
            {:basic-auth {:username \"admin\"

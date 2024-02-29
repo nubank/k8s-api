@@ -176,6 +176,31 @@
                   slurp
                   (json/parse-string keyword-except-paths))))
 
+(defn default-paths [paths]
+  {"/apis/" (get-in paths ["/apis/"])
+   "/api/" (get-in paths ["/api/"])})
+
+(defn filter-api-version
+  "Returns the paths that starts with the given api and version
+   e.g. /apis/{api}/{version}/..."
+  [api version paths]
+  (let [api-version (str "/apis/" api "/" version)]
+    (into {} (filter #(string/starts-with? (first %) api-version) paths))))
+
+(defn from-api-version
+  "Returns the default paths and the paths for the given api version"
+  [api version paths]
+  (into (default-paths paths)
+        (filter-api-version api version paths)))
+
+(defn filter-by-api-version? [api version]
+  (and (not (string/blank? api)) (not (string/blank? version)) true))
+
+(defn filter-paths
+  "Returns an updated schema with the paths for the given api version"
+  [schema api version]
+  (update schema :paths (partial from-api-version api version)))
+
 (defn from-api* [api-root opts]
   (json/parse-string
    (interceptors.raise/check-response
@@ -184,9 +209,17 @@
                           (interceptors.auth/request-auth-params opts))))
    keyword-except-paths))
 
+(defn get-schema-from-api
+  "Retrieves the schema from the kubernetes api"
+  [api-root {{:keys [api version]} :openapi :as opts}]
+  (let [schema (from-api* api-root opts)]
+    (if (filter-by-api-version? api version)
+      (filter-paths schema api version)
+      schema)))
+
 (defn from-api [api-root opts]
   (try
     (when (openapi-discovery-enabled? opts)
-      (customized (from-api* api-root opts)))
+      (customized (get-schema-from-api api-root opts)))
     (catch Exception _
       nil)))
