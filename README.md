@@ -67,8 +67,7 @@ api, or when you want to use a specific group of resources.
 
 ```clojure
 (def k8s (k8s/client "http://some.host" {:token "..."
-                                         :openapi {:api "some.api"
-                                                   :version "v1"}}))
+                                         :openapi {:apis ["some.api/v1alpha1", "another.api"]}}))
 ```
 
 ### Discover

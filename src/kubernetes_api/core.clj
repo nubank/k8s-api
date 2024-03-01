@@ -34,13 +34,17 @@
 
   [OpenAPI]
   :openapi/:discovery - :disabled to avoid fetching openapi schema from k8s
-  :openapi/:api - the api group to fetch the schema from
-  :openapi/:version - the version of the api group to fetch the schema from
+  :openapi/:apis - a list of api groups to fetch the schema from
 
-  Example:
+  Example 1:
   (client \"https://kubernetes.docker.internal:6443\"
            {:basic-auth {:username \"admin\"
-                         :password \"1234\"}})"
+                         :password \"1234\"}})
+  Example 2:
+  (client \"https://kubernetes.docker.internal:6443\"
+           {:basic-auth {:username \"admin\"
+                         :password \"1234\"}
+            :openapi {:apis [\"some.api/v1alpha1\", \"another.api\"]}})"
   [host opts]
   (let [interceptors (concat [(interceptors.raise/new opts)
                               (interceptors.auth/new opts)]
@@ -52,7 +56,7 @@
         k8s          (internals.client/transform
                       (martian/bootstrap-swagger host
                                                  (or (swagger/from-api host opts)
-                                                     (swagger/read))
+                                                     (swagger/read opts))
                                                  {:interceptors interceptors}))]
     (assoc k8s
            ::api-group-list (internals.martian/response-for k8s :GetApiVersions)
