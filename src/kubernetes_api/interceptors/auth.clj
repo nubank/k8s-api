@@ -1,13 +1,21 @@
 (ns kubernetes-api.interceptors.auth
-  (:require [less.awful.ssl :as ssl]
+  (:require [kubernetes-api.interceptors.auth.ssl :as auth.ssl]
             [tripod.log :as log]))
 
-(defn- new-ssl-engine
-  [{:keys [ca-cert client-cert client-key]}]
-  (ssl/ssl-context->engine (ssl/ssl-context client-key client-cert ca-cert)))
+(defn- ca-cert? [{:keys [ca-cert certificate-authority-data]}]
+  (or (some? ca-cert)
+      (some? certificate-authority-data)))
 
-(defn- client-certs? [{:keys [ca-cert client-cert client-key]}]
-  (every? some? [ca-cert client-cert client-key]))
+(defn- client-cert? [{:keys [client-cert client-certificate-data]}]
+  (or (some? client-cert)
+      (some? client-certificate-data)))
+
+(defn- client-key? [{:keys [client-key client-key-data]}]
+  (or (some? client-key)
+      (some? client-key-data)))
+
+(defn- client-certs? [opts]
+  (and (ca-cert? opts) (client-cert? opts) (client-key? opts)))
 
 (defn- basic-auth? [{:keys [username password]}]
   (every? some? [username password]))
@@ -23,16 +31,14 @@
 
 (defn request-auth-params [{:keys [token-fn insecure?] :as opts}]
   (merge
-    {:insecure? (or insecure? false)
-     :sslengine (.createSSLEngine (doto (javax.net.ssl.SSLContext/getInstance "TLSv1.2")
-                   (.init nil
-                          (into-array javax.net.ssl.TrustManager [(less.awful.ssl/trust-manager (less.awful.ssl/trust-store "/Users/rafael.leal/.kube/ca-br-prod-s9-green.crt"))])
-                          nil)))}
+    {:insecure? (or insecure? false)}
+   (when (and (ca-cert? opts) (not (client-certs? opts)))
+     {:sslengine (auth.ssl/ca-cert->ssl-engine opts)})
    (cond
      (basic-auth? opts) {:basic-auth (basic-auth opts)}
      (token? opts) {:oauth-token (:token opts)}
      (token-fn? opts) {:oauth-token (token-fn opts)}
-     (client-certs? opts) {:sslengine (new-ssl-engine opts)}
+     (client-certs? opts) {:sslengine (auth.ssl/client-certs->ssl-engine opts)}
      :else (do (log/info "No authentication method found")
                {}))))
 
