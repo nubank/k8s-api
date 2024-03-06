@@ -80,7 +80,7 @@
   (let [api-resources (internals.martian/response-for k8s :GetArbitraryApiResources
                                                       {:api     api
                                                        :version version})
-        crds (internals.martian/response-for k8s :ListApiextensionsV1beta1CustomResourceDefinition)]
+        crds (internals.martian/response-for k8s :ListApiextensionsV1CustomResourceDefinition)]
     (internals.client/pascal-case-routes
      (update k8s
              :handlers #(concat % (martian.swagger/swagger->handlers
