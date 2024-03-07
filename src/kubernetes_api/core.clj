@@ -27,6 +27,12 @@
                token
   :client-cert/:ca-cert/:client-key - string filepath indicating certificates
                                        and key files to configure client cert.
+  :certificate-authority-data - a base64 encoded string with the certificate
+                                 authority data
+  :client-certificate-data - a base64 encoded string with the client certificate
+                             alternative to :client-cert
+  :client-key-data - a base64 encoded string with the client key alternative
+                     to :client-key
   :insecure? - ignore self-signed server certificates
 
   [Custom]
