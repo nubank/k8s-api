@@ -26,10 +26,7 @@
     last
     ssl/base64->binary
     PKCS8EncodedKeySpec.
-    (.generatePrivate ssl/rsa-key-factory))
-    #_
-  (->> (PKCS8EncodedKeySpec. (ssl/base64->binary base64-private-key)) 
-       (.generatePrivate ssl/rsa-key-factory)))
+    (.generatePrivate ssl/rsa-key-factory)))
 
 (defn private-key [{:keys [key key-data]}]
   (cond
