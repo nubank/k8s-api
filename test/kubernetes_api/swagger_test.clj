@@ -1,7 +1,7 @@
 (ns kubernetes-api.swagger-test
   (:require [clojure.test :refer :all]
-            [matcher-combinators.test :refer [match?]]
-            [kubernetes-api.swagger :as swagger]))
+            [kubernetes-api.swagger :as swagger]
+            [matcher-combinators.test :refer [match?]]))
 
 (deftest remove-watch-endpoints-test
   (is (= {:paths {"/foo/bar" 'irrelevant
@@ -114,25 +114,42 @@
 
 (deftest filter-api-test
   (testing "returns the paths from the api version specified"
-    (is (= {"/apis/foo.bar/v1" {}}
+    (is (= {"/apis/foo.bar/v1" {}
+            "/foo.bar/v1"      {}}
            (swagger/filter-api "foo.bar/v1"
                                {"/apis/"           {}
                                 "/foo.bar/v1"      {}
                                 "/apis/foo/bar"    {}
                                 "/apis/foo.bar/v1" {}
                                 "/apis/foo.bar/v2" {}})))
-    (is (= {"/apis/foo.bar/v1" {}
+    (is (= {"/foo.bar/v1"      {}
+            "/apis/foo.bar/v1" {}
             "/apis/foo.bar/v2" {}}
            (swagger/filter-api "foo.bar"
                                {"/apis/"           {}
                                 "/foo.bar/v1"      {}
-                                "/apis/foo.bar/v1"  {}
+                                "/apis/foo.bar/v1" {}
                                 "/apis/foo.bar/v2" {}})))
     (is (empty? (swagger/filter-api "foo.bar/v2"
                                     {"/apis/"           {}
                                      "/api/"            {}
                                      "/apis/foo/bar"    {}
-                                     "/apis/foo.bar/v1" {}})))))
+                                     "/apis/foo.bar/v1" {}})))
+    (is (= {"/api/v1" {}}
+           (swagger/filter-api "v1"
+                               {"/api/v1"          {}
+                                "/foo.bar/v1"      {}
+                                "/apis/foo.bar/v1" {}
+                                "/apis/foo.bar/v2" {}})))
+    (is (= {"/api/v1"  {}
+            "/apis/v1" {}
+            "/v1"      {}}
+           (swagger/filter-api "v1"
+                               {"/api/v1"          {}
+                                "/apis/v1"         {}
+                                "/v1"              {}
+                                "/apis/foo.bar/v1" {}
+                                "/apis/foo.bar/v2" {}})))))
 
 (deftest from-apis-test
   (testing "returns the paths from the api version specified and the default paths"

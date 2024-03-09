@@ -154,11 +154,15 @@
    "/api/" (get-in paths ["/api/"])})
 
 (defn filter-api
-  "Returns the paths that starts with the given api and version
-   e.g. /apis/{api}/..."
+  "Returns the paths that start with the given api and version
+   e.g. /apis/{api}/...; /api/{api}/...; /{api}/..."
   [api paths]
-  (into {}
-        (filter #(string/starts-with? (first %) (str "/apis/" api)) paths)))
+  (let [api-paths [(str "/apis/" api)
+                   (str "/api/" api)
+                   (str "/" api)]
+        starts-with-api? (fn [path]
+                           (some #(string/starts-with? path %) api-paths))]
+    (into {} (filter (comp starts-with-api? first) paths))))
 
 (defn from-apis
   "Returns the default paths and the paths for the given apis"
