@@ -35,6 +35,7 @@
   [OpenAPI]
   :openapi/:discovery - :disabled to avoid fetching openapi schema from k8s
   :openapi/:apis - a list of api groups to fetch the schema from
+                   default is in kubernetes-api.swagger/default-apis
 
   Example 1:
   (client \"https://kubernetes.docker.internal:6443\"

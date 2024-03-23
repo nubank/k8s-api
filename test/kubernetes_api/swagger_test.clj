@@ -149,7 +149,11 @@
                                 "/apis/v1"         {}
                                 "/v1"              {}
                                 "/apis/foo.bar/v1" {}
-                                "/apis/foo.bar/v2" {}})))))
+                                "/apis/foo.bar/v2" {}})))
+
+    (is (= {"/api/v1" {}}
+           (swagger/filter-api "/api"
+                               {"/api/v1" {}})))))
 
 (deftest from-apis-test
   (testing "returns the paths from the api version specified and the default paths"
@@ -213,4 +217,13 @@
            (swagger/filter-paths {:paths {"/apis/"           {}
                                           "/api/"            {}
                                           "/apis/foo/bar"    {}
-                                          "/apis/foo.bar/v1" {}}} [])))))
+                                          "/apis/foo.bar/v1" {}}} []))))
+
+  (testing "Returns default apis"
+    (is (match? {:paths {"/api/v1/configmaps"        {}
+                         "/apis/apps/v1/deployments" {}
+                         "/logs/"                    {}
+                         "/openid/v1/jwks/"          {}
+                         "/version/"                 {}}}
+         (-> (swagger/parse-swagger-file "test_swagger.json")
+             (swagger/filter-paths swagger/default-apis))))))

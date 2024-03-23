@@ -8,6 +8,14 @@
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [org.httpkit.client :as http]))
 
+(def default-apis
+  "Default apis for kubernetes"
+  ["/api/"
+   "/apis/"
+   "/logs/"
+   "/openid/"
+   "/version/"])
+
 (defn remove-watch-endpoints
   "Watch endpoints doesn't follow the http1.1 specification, so it will not work
   with httpkit or similar.
@@ -159,7 +167,8 @@
   [api paths]
   (let [api-paths [(str "/apis/" api)
                    (str "/api/" api)
-                   (str "/" api)]
+                   (str "/" api)
+                   api]
         starts-with-api? (fn [path]
                            (some #(string/starts-with? path %) api-paths))]
     (into {} (filter (comp starts-with-api? first) paths))))
@@ -176,19 +185,12 @@
   [schema apis]
   (update schema :paths (partial from-apis apis)))
 
-(defn filter-api-paths
-  "Retrieves the schema from the given apis"
-  [swagger {{:keys [apis]} :openapi}]
-  (if (seq apis)
-    (filter-paths swagger apis)
-    swagger))
-
 (defn ^:private customized
   "Receives a kubernetes swagger, adds a description to the routes and some
   generic routes"
-  [swagger opts]
+  [swagger {{:keys [apis] :or {apis default-apis}} :openapi}]
   (-> swagger
-      (filter-api-paths opts)
+      (filter-paths apis)
       add-summary
       (add-some-routes {} arbitrary-api-resources-route)
       fix-k8s-verb
@@ -205,11 +207,16 @@
   [opts]
   (not= :disabled (get-in opts [:openapi :discovery])))
 
+(defn parse-swagger-file
+  "Reads a swagger file and returns a clojure map with the swagger data"
+  [file]
+  (-> (io/resource file)
+      io/input-stream
+      slurp
+      (json/parse-string keyword-except-paths)))
+
 (defn read [opts]
-  (customized (-> (io/resource "kubernetes_api/swagger.json")
-                  io/input-stream
-                  slurp
-                  (json/parse-string keyword-except-paths)) opts))
+  (customized (parse-swagger-file "kubernetes_api/swagger.json") opts))
 
 (defn from-api* [api-root opts]
   (json/parse-string
