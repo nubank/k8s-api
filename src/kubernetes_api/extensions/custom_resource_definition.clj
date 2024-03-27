@@ -12,9 +12,9 @@
               "deletecollection" "delete"
               k8s-verb))
           (suffix [k8s-verb]
-                  (case k8s-verb
-                    "deletecollection" "collection"
-                    nil))]
+            (case k8s-verb
+              "deletecollection" "collection"
+              nil))]
     (csk/->PascalCase (string/join "_" (->> [(prefix verb)
                                              group
                                              version
@@ -148,7 +148,22 @@
                                                  (string/starts-with? (:name %) (:name resource)))
                                            subresources))) top-levels)))
 
-(defn swagger-from [extention-api
+(defn crd-from-gvk?
+  [crd gvk]
+  (let [{:keys [group versions names]} (:spec crd)]
+    (and (= (:group gvk) group)
+         (some #(= % (:version gvk)) (map :name versions))
+         (= (:kind gvk) (:kind names)))))
+
+(defn swagger-from [extension-api
                     {:keys [resources] :as _api-resources}
                     {:keys [items] :as crds}]
-  {:paths (into {} (mapcat (fn [resource] (single-resource-swagger extention-api resource (misc/find-first (fn [{{:keys [group version names]} :spec}] (and (= (:api extention-api) group) (= (:version extention-api) version) (= (:kind resource) (:kind names)))) items))) (top-level-resources resources)))})
+  (->> (top-level-resources resources)
+       (mapcat (fn [resource]
+                 (->> items
+                      (misc/find-first #(crd-from-gvk? % {:group   (:api extension-api)
+                                                          :version (:version extension-api)
+                                                          :kind    (:kind resource)}))
+                      (single-resource-swagger extension-api resource))))
+       (into {})
+       (hash-map :paths)))
