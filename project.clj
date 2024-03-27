@@ -1,4 +1,4 @@
-(defproject nubank/k8s-api "0.5.0-SNAPSHOT"
+(defproject nubank/k8s-api "0.5.1-SNAPSHOT"
   :description "A library to talk with kubernetes api"
   :url "https://github.com/nubank/k8s-api"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
@@ -17,5 +17,6 @@
   :aliases {"lint"     ["do" ["cljfmt" "check"] ["nsorg"] ["kibit"]]
             "lint-fix" ["do" ["cljfmt" "fix"] ["nsorg" "--replace"] ["kibit" "--replace"]]}
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[nubank/matcher-combinators "3.8.5"]
+             :dev {:resource-paths ["test/kubernetes_api/resources"]
+                   :dependencies [[nubank/matcher-combinators "3.8.5"]
                                   [nubank/mockfn "0.7.0"]]}})

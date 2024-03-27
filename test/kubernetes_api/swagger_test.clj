@@ -1,7 +1,7 @@
 (ns kubernetes-api.swagger-test
   (:require [clojure.test :refer :all]
-            [matcher-combinators.test :refer [match?]]
-            [kubernetes-api.swagger :as swagger]))
+            [kubernetes-api.swagger :as swagger]
+            [matcher-combinators.test :refer [match?]]))
 
 (deftest remove-watch-endpoints-test
   (is (= {:paths {"/foo/bar" 'irrelevant
@@ -68,11 +68,11 @@
                                                     :consumes ["application/apply-patch+yaml"]
                                                     :x-kubernetes-action "apply/server"}}}}
                 (swagger/add-patch-routes
-                  {:paths {"/foo/bar" {:put {:parameters [{:name "body"
-                                                            :in "body"
-                                                            :schema 'schema}]
-                                             :x-kubernetes-action "update"}
-                                       :patch {:operationId "PatchCoreV1Resource"
+                 {:paths {"/foo/bar" {:put {:parameters [{:name "body"
+                                                          :in "body"
+                                                          :schema 'schema}]
+                                            :x-kubernetes-action "update"}
+                                      :patch {:operationId "PatchCoreV1Resource"
                                               :parameters [{:name "body"
                                                             :in "body"
                                                             :schema 'broken}]}}}})))))
@@ -99,3 +99,131 @@
                                   {:Movie {:type       "object"
                                            :properties {:name {:type "string"}}}}
                                   {"/movies/{id}" {:get {:response-schemas {"200" {:$ref "#/definitions/Movie"}}}}}))))
+
+(deftest default-paths-test
+  (testing "returns the default paths /apis/ and /api/"
+    (is (= {"/apis/" {}
+            "/api/"  {}}
+           (swagger/default-paths {"/apis/"        {}
+                                   "/apis/foo/bar" {}
+                                   "/api/"         {}})))
+    (is (= {"/apis/" {}
+            "/api/"  nil}
+           (swagger/default-paths {"/apis/"        {}
+                                   "/apis/foo/bar" {}})))))
+
+(deftest filter-api-test
+  (testing "returns the paths from the api version specified"
+    (is (= {"/apis/foo.bar/v1" {}
+            "/foo.bar/v1"      {}}
+           (swagger/filter-api "foo.bar/v1"
+                               {"/apis/"           {}
+                                "/foo.bar/v1"      {}
+                                "/apis/foo/bar"    {}
+                                "/apis/foo.bar/v1" {}
+                                "/apis/foo.bar/v2" {}})))
+    (is (= {"/foo.bar/v1"      {}
+            "/apis/foo.bar/v1" {}
+            "/apis/foo.bar/v2" {}}
+           (swagger/filter-api "foo.bar"
+                               {"/apis/"           {}
+                                "/foo.bar/v1"      {}
+                                "/apis/foo.bar/v1" {}
+                                "/apis/foo.bar/v2" {}})))
+    (is (empty? (swagger/filter-api "foo.bar/v2"
+                                    {"/apis/"           {}
+                                     "/api/"            {}
+                                     "/apis/foo/bar"    {}
+                                     "/apis/foo.bar/v1" {}})))
+    (is (= {"/api/v1" {}}
+           (swagger/filter-api "v1"
+                               {"/api/v1"          {}
+                                "/foo.bar/v1"      {}
+                                "/apis/foo.bar/v1" {}
+                                "/apis/foo.bar/v2" {}})))
+    (is (= {"/api/v1"  {}
+            "/apis/v1" {}
+            "/v1"      {}}
+           (swagger/filter-api "v1"
+                               {"/api/v1"          {}
+                                "/apis/v1"         {}
+                                "/v1"              {}
+                                "/apis/foo.bar/v1" {}
+                                "/apis/foo.bar/v2" {}})))
+
+    (is (= {"/api/v1" {}}
+           (swagger/filter-api "/api"
+                               {"/api/v1" {}})))))
+
+(deftest from-apis-test
+  (testing "returns the paths from the api version specified and the default paths"
+    (is (=  {"/apis/"           {}
+             "/api/"            {}
+             "/apis/foo.bar/v1" {}}
+            (swagger/from-apis ["foo.bar/v1"]
+                               {"/apis/"           {}
+                                "/api/"            {}
+                                "/apis/foo/bar"    {}
+                                "/apis/foo.bar/v1" {}})))
+    (is (=  {"/apis/"           {}
+             "/api/"            {}
+             "/apis/foo/bar"    {}
+             "/apis/foo.bar/v1" {}}
+            (swagger/from-apis ["foo.bar/v1", "foo"]
+                               {"/apis/"           {}
+                                "/api/"            {}
+                                "/apis/foo/bar"    {}
+                                "/apis/foo.bar/v1" {}})))
+    (is (= {"/apis/" {}
+            "/api/"  {}}
+           (swagger/from-apis ["foo.bar/v2"]
+                              {"/apis/"           {}
+                               "/api/"            {}
+                               "/apis/foo/bar"    {}
+                               "/apis/foo.bar/v1" {}})))))
+
+(deftest filter-paths-test
+  (testing "filter the paths for the api and version specified"
+    (is (= {:paths {"/apis/"           {}
+                    "/api/"            {}
+                    "/apis/foo.bar/v1" {}}}
+           (swagger/filter-paths {:paths {"/apis/"           {}
+                                          "/api/"            {}
+                                          "/apis/foo/bar"    {}
+                                          "/apis/foo.bar/v1" {}}}
+                                 ["foo.bar/v1"])))
+    (is (= {:paths {"/apis/"           {}
+                    "/api/"            {}
+                    "/apis/foo/bar"    {}
+                    "/apis/foo.bar/v1" {}}}
+           (swagger/filter-paths {:paths {"/apis/"           {}
+                                          "/api/"            {}
+                                          "/apis/foo/bar"    {}
+                                          "/apis/foo.bar/v1" {}}}
+                                 ["foo.bar/v1" "foo"]))))
+
+  (testing "do not update paths if api or version not found"
+    (is (= {:paths {"/apis/"           {}
+                    "/api/"            {}}}
+           (swagger/filter-paths {:paths {"/apis/"           {}
+                                          "/api/"            {}
+                                          "/apis/foo/bar"    {}
+                                          "/apis/foo.bar/v1" {}}}
+                                 ["foo.bar/v2"]))))
+
+  (testing "returns the default paths if api or version is missing"
+    (is (= {:paths {"/apis/" {}
+                    "/api/"  {}}}
+           (swagger/filter-paths {:paths {"/apis/"           {}
+                                          "/api/"            {}
+                                          "/apis/foo/bar"    {}
+                                          "/apis/foo.bar/v1" {}}} []))))
+
+  (testing "Returns default apis"
+    (is (match? {:paths {"/api/v1/configmaps"        {}
+                         "/apis/apps/v1/deployments" {}
+                         "/logs/"                    {}
+                         "/openid/v1/jwks/"          {}
+                         "/version/"                 {}}}
+         (-> (swagger/parse-swagger-file "test_swagger.json")
+             (swagger/filter-paths swagger/default-apis))))))

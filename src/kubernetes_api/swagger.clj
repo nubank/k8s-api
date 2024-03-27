@@ -8,6 +8,14 @@
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [org.httpkit.client :as http]))
 
+(def default-apis
+  "Default apis for kubernetes"
+  ["/api/"
+   "/apis/"
+   "/logs/"
+   "/openid/"
+   "/version/"])
+
 (defn remove-watch-endpoints
   "Watch endpoints doesn't follow the http1.1 specification, so it will not work
   with httpkit or similar.
@@ -149,11 +157,40 @@
                                            [[verb operation]])))
                                (into {}))))))
 
+(defn default-paths [paths]
+  {"/apis/" (get-in paths ["/apis/"])
+   "/api/" (get-in paths ["/api/"])})
+
+(defn filter-api
+  "Returns the paths that start with the given api and version
+   e.g. /apis/{api}/...; /api/{api}/...; /{api}/..."
+  [api paths]
+  (let [api-paths [(str "/apis/" api)
+                   (str "/api/" api)
+                   (str "/" api)
+                   api]
+        starts-with-api? (fn [path]
+                           (some #(string/starts-with? path %) api-paths))]
+    (into {} (filter (comp starts-with-api? first) paths))))
+
+(defn from-apis
+  "Returns the default paths and the paths for the given apis"
+  [apis paths]
+  (let [api-paths (mapv #(filter-api % paths) apis)]
+    (into (default-paths paths)
+          api-paths)))
+
+(defn filter-paths
+  "Returns an updated schema with the paths for the given apis"
+  [schema apis]
+  (update schema :paths (partial from-apis apis)))
+
 (defn ^:private customized
   "Receives a kubernetes swagger, adds a description to the routes and some
   generic routes"
-  [swagger]
+  [swagger {{:keys [apis] :or {apis default-apis}} :openapi}]
   (-> swagger
+      (filter-paths apis)
       add-summary
       (add-some-routes {} arbitrary-api-resources-route)
       fix-k8s-verb
@@ -170,11 +207,16 @@
   [opts]
   (not= :disabled (get-in opts [:openapi :discovery])))
 
-(defn read []
-  (customized (-> (io/resource "kubernetes_api/swagger.json")
-                  io/input-stream
-                  slurp
-                  (json/parse-string keyword-except-paths))))
+(defn parse-swagger-file
+  "Reads a swagger file and returns a clojure map with the swagger data"
+  [file]
+  (-> (io/resource file)
+      io/input-stream
+      slurp
+      (json/parse-string keyword-except-paths)))
+
+(defn read [opts]
+  (customized (parse-swagger-file "kubernetes_api/swagger.json") opts))
 
 (defn from-api* [api-root opts]
   (json/parse-string
@@ -187,6 +229,6 @@
 (defn from-api [api-root opts]
   (try
     (when (openapi-discovery-enabled? opts)
-      (customized (from-api* api-root opts)))
+      (customized (from-api* api-root opts) opts))
     (catch Exception _
       nil)))
