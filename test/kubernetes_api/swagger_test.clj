@@ -1,5 +1,6 @@
 (ns kubernetes-api.swagger-test
   (:require [clojure.test :refer :all]
+            [kubernetes-api.core :as k8s]
             [kubernetes-api.swagger :as swagger]
             [matcher-combinators.test :refer [match?]]))
 
@@ -100,60 +101,31 @@
                                            :properties {:name {:type "string"}}}}
                                   {"/movies/{id}" {:get {:response-schemas {"200" {:$ref "#/definitions/Movie"}}}}}))))
 
-(deftest default-paths-test
-  (testing "returns the default paths /apis/ and /api/"
-    (is (= {"/apis/" {}
-            "/api/"  {}}
-           (swagger/default-paths {"/apis/"        {}
-                                   "/apis/foo/bar" {}
-                                   "/api/"         {}})))
-    (is (= {"/apis/" {}
-            "/api/"  nil}
-           (swagger/default-paths {"/apis/"        {}
-                                   "/apis/foo/bar" {}})))))
+(deftest group-version-test
+  (testing "applies to string"
+    (is (= {:group "apps" :version "v1"}
+           (swagger/group-version "apps/v1")))
+    (is (= {:group "apps"}
+           (swagger/group-version "apps")))
+    (is (= {:group "" :version "v1"}
+           (swagger/group-version "core/v1"))))
+  (testing "applies to keyword"
+    (is (= {:group "apps" :version "v1"}
+           (swagger/group-version :apps/v1)))
+    (is (= {:group "apps"}
+           (swagger/group-version :apps)))
+    (is (= {:group "" :version "v1"}
+           (swagger/group-version :core/v1)))))
 
-(deftest filter-api-test
-  (testing "returns the paths from the api version specified"
-    (is (= {"/apis/foo.bar/v1" {}
-            "/foo.bar/v1"      {}}
-           (swagger/filter-api "foo.bar/v1"
-                               {"/apis/"           {}
-                                "/foo.bar/v1"      {}
-                                "/apis/foo/bar"    {}
-                                "/apis/foo.bar/v1" {}
-                                "/apis/foo.bar/v2" {}})))
-    (is (= {"/foo.bar/v1"      {}
-            "/apis/foo.bar/v1" {}
-            "/apis/foo.bar/v2" {}}
-           (swagger/filter-api "foo.bar"
-                               {"/apis/"           {}
-                                "/foo.bar/v1"      {}
-                                "/apis/foo.bar/v1" {}
-                                "/apis/foo.bar/v2" {}})))
-    (is (empty? (swagger/filter-api "foo.bar/v2"
-                                    {"/apis/"           {}
-                                     "/api/"            {}
-                                     "/apis/foo/bar"    {}
-                                     "/apis/foo.bar/v1" {}})))
-    (is (= {"/api/v1" {}}
-           (swagger/filter-api "v1"
-                               {"/api/v1"          {}
-                                "/foo.bar/v1"      {}
-                                "/apis/foo.bar/v1" {}
-                                "/apis/foo.bar/v2" {}})))
-    (is (= {"/api/v1"  {}
-            "/apis/v1" {}
-            "/v1"      {}}
-           (swagger/filter-api "v1"
-                               {"/api/v1"          {}
-                                "/apis/v1"         {}
-                                "/v1"              {}
-                                "/apis/foo.bar/v1" {}
-                                "/apis/foo.bar/v2" {}})))
-
-    (is (= {"/api/v1" {}}
-           (swagger/filter-api "/api"
-                               {"/api/v1" {}})))))
+(deftest from-group-version?-test
+  (testing "applies to string"
+    (is (swagger/from-group-version? "apps/v1" "/apis/apps/v1/namespaces/:namespace/deployments"))
+    (is (swagger/from-group-version? "apps"  "/apis/apps/v1/namespaces/:namespace/deployments"))
+    (is (swagger/from-group-version? "core/v1"  "/api/v1/namespaces/:namespace/pods")))
+  (testing "applies to keyword"
+    (is (swagger/from-group-version? :apps/v1 "/apis/apps/v1/namespaces/:namespace/deployments"))
+    (is (swagger/from-group-version? :apps  "/apis/apps/v1/namespaces/:namespace/deployments"))
+    (is (swagger/from-group-version? :core/v1  "/api/v1/namespaces/:namespace/pods"))))
 
 (deftest from-apis-test
   (testing "returns the paths from the api version specified and the default paths"
@@ -222,8 +194,10 @@
   (testing "Returns default apis"
     (is (match? {:paths {"/api/v1/configmaps"        {}
                          "/apis/apps/v1/deployments" {}
+                         "/apis/apps/"               {}
+                         "/apis/apps/v1/"            {}
                          "/logs/"                    {}
                          "/openid/v1/jwks/"          {}
                          "/version/"                 {}}}
          (-> (swagger/parse-swagger-file "test_swagger.json")
-             (swagger/filter-paths swagger/default-apis))))))
+             (swagger/filter-paths k8s/default-apis))))))

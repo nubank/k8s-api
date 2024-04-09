@@ -12,6 +12,35 @@
             [martian.httpkit :as martian-httpkit]
             martian.swagger))
 
+(def default-apis
+  "Default API Groups used by Kubernetes.
+   We don't specify versions as we intend to be as future-proof as possible.
+   https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#api-groups"
+  [:admissionregistration.k8s.io
+   :apiextensions.k8s.io
+   :apiregistration.k8s.io
+   :apps
+   :authentication.k8s.io
+   :authorization.k8s.io
+   :autoscaling
+   :batch
+   :certificates.k8s.io
+   :coordination.k8s.io
+   :core
+   :discovery.k8s.io
+   :events.k8s.io
+   :flowcontrol.apiserver.k8s.io
+   :internal.apiserver.k8s.io
+   :networking.k8s.io
+   :node.k8s.io
+   :policy
+   :rbac.authorization.k8s.io
+   :resource.k8s.io
+   :scheduling.k8s.io
+   :storage.k8s.io])
+
+(def defaults
+  {:apis default-apis})
 
 (defn client
   "Creates a Kubernetes Client compliant with martian api and its helpers
@@ -31,11 +60,11 @@
 
   [Custom]
   :interceptors - additional interceptors to the martian's client
+  :apis - a list of api groups and optionally versions.
+          Defaults to kubernetes-api.core/default-apis
 
   [OpenAPI]
   :openapi/:discovery - :disabled to avoid fetching openapi schema from k8s
-  :openapi/:apis - a list of api groups to fetch the schema from
-                   default is in kubernetes-api.swagger/default-apis
 
   Example 1:
   (client \"https://kubernetes.docker.internal:6443\"
@@ -45,9 +74,10 @@
   (client \"https://kubernetes.docker.internal:6443\"
            {:basic-auth {:username \"admin\"
                          :password \"1234\"}
-            :openapi {:apis [\"some.api/v1alpha1\", \"another.api\"]}})"
+            :apis [:some.api/v1alpha1, :another.api/v1beta1]})"
   [host opts]
-  (let [interceptors (concat [(interceptors.raise/new opts)
+  (let [opts         (merge defaults opts)
+        interceptors (concat [(interceptors.raise/new opts)
                               (interceptors.auth/new opts)]
                              (:interceptors opts)
                              martian/default-interceptors

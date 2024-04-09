@@ -8,14 +8,6 @@
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [org.httpkit.client :as http]))
 
-(def default-apis
-  "Default apis for kubernetes"
-  ["/api/"
-   "/apis/"
-   "/logs/"
-   "/openid/"
-   "/version/"])
-
 (defn remove-watch-endpoints
   "Watch endpoints doesn't follow the http1.1 specification, so it will not work
   with httpkit or similar.
@@ -157,28 +149,29 @@
                                            [[verb operation]])))
                                (into {}))))))
 
-(defn default-paths [paths]
-  {"/apis/" (get-in paths ["/apis/"])
-   "/api/" (get-in paths ["/api/"])})
+(defn group-version [api]
+  (letfn [(group [s] (if (= s "core") "" s))]
+    (cond
+      (nil? api) nil
+      (string? api) (group-version (keyword api))
+      (and (keyword? api) (seq (namespace api))) {:group (group (namespace api)) 
+                                                  :version (name api)}
+      (keyword? api) {:group (group (name api))})))
 
-(defn filter-api
-  "Returns the paths that start with the given api and version
-   e.g. /apis/{api}/...; /api/{api}/...; /{api}/..."
-  [api paths]
-  (let [api-paths [(str "/apis/" api)
-                   (str "/api/" api)
-                   (str "/" api)
-                   api]
-        starts-with-api? (fn [path]
-                           (some #(string/starts-with? path %) api-paths))]
-    (into {} (filter (comp starts-with-api? first) paths))))
+(defn from-group-version? [api path]
+  (let [{:keys [group version]} (group-version api)]
+    (if (= group "")
+      (string/starts-with? path (str "/api/" version))
+      (string/starts-with? path (str "/apis/" group "/" version)))))
 
 (defn from-apis
   "Returns the default paths and the paths for the given apis"
   [apis paths]
-  (let [api-paths (mapv #(filter-api % paths) apis)]
-    (into (default-paths paths)
-          api-paths)))
+  (->> paths
+       (filter (fn [[path _]] (or (not (string/starts-with? path "/api")) 
+                                  (#{"/apis/" "/api/"} path) 
+                                  (some #(from-group-version? % path) apis))))
+       (into {})))
 
 (defn filter-paths
   "Returns an updated schema with the paths for the given apis"
@@ -188,9 +181,9 @@
 (defn ^:private customized
   "Receives a kubernetes swagger, adds a description to the routes and some
   generic routes"
-  [swagger {{:keys [apis] :or {apis default-apis}} :openapi}]
+  [swagger opts]
   (-> swagger
-      (filter-paths apis)
+      (filter-paths (:apis opts))
       add-summary
       (add-some-routes {} arbitrary-api-resources-route)
       fix-k8s-verb
