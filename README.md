@@ -1,5 +1,7 @@
 # kubernetes-api
 
+[![Clojars Project](https://img.shields.io/clojars/v/nubank/k8s-api.svg)](https://clojars.org/nubank/k8s-api)
+
 kubernetes-api is a Clojure library that acts as a kubernetes client
 
 ## Motivation
@@ -11,12 +13,12 @@ We had a good experience with
 
 ### clojure.deps
 ```clojure
-{:deps {nubank/k8s-api {:mvn/version "0.3.0"}}}
+{:deps {nubank/k8s-api {:mvn/version "1.0.0"}}}
 ```
 
 ### Leiningen
 ```clojure
-[nubank/k8s-api "0.3.0"]
+[nubank/k8s-api "1.0.0"]
 ```
 
 ```clojure
@@ -49,12 +51,25 @@ You can also define client certificates
 ```
 
 #### OpenAPI config
+
+##### Discovery
+
 It's possible but NOT RECOMMENDED to disable the OpenAPI specification discovery. This will prevent requests to
 `/openapi/...` endpoints and use the specification from the resources folder. This specification has no guarantees in
  terms of versioning, so it will be outdated.
 ```clojure
-(def k8s (k8s/client "http://some.host" {:token "..." 
+(def k8s (k8s/client "http://some.host" {:token "..."
                                          :openapi {:discovery :disabled}}))
+```
+
+##### Filter paths from api
+
+You can filter the paths from the OpenAPI specification. This is useful when you want to use a specific version of the
+api, or when you want to use a specific group of resources.
+
+```clojure
+(def k8s (k8s/client "http://some.host" {:token "..."
+                                         :openapi {:apis ["some.api/v1alpha1", "another.api"]}}))
 ```
 
 ### Discover
