@@ -1,5 +1,7 @@
 # kubernetes-api
 
+[![Clojars Project](https://img.shields.io/clojars/v/nubank/k8s-api.svg)](https://clojars.org/nubank/k8s-api)
+
 kubernetes-api is a Clojure library that acts as a kubernetes client
 
 ## Motivation
@@ -11,12 +13,12 @@ We had a good experience with
 
 ### clojure.deps
 ```clojure
-{:deps {nubank/k8s-api {:mvn/version "0.3.0"}}}
+{:deps {nubank/k8s-api {:mvn/version "1.0.0"}}}
 ```
 
 ### Leiningen
 ```clojure
-[nubank/k8s-api "0.3.0"]
+[nubank/k8s-api "1.0.0"]
 ```
 
 ```clojure
