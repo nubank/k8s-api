@@ -11,7 +11,8 @@
 (deftest raise-test
   (let [raise-interceptor (interceptors.raise/new {})]
     (testing "should raise the body to be the response on 2xx status"
-      (is (match? {:response {:my :body}}
+      (is (match? {:response {:status 200
+                              :body {:my :body}}}
                   (run-interceptor raise-interceptor {:response {:status 200 :body {:my :body}}}))))
 
     (testing "should have the request/response on metadata"
