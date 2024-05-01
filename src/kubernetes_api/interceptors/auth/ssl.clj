@@ -8,11 +8,23 @@
                           TrustManager
                           KeyManager)))
 
+(defn extract-cert-data
+  [base64-cert-data]
+  (let [extracted-data (->> base64-cert-data
+                           (re-find #"(?ms)^-----BEGIN ?.*? CERTIFICATE-----$(.+)^-----END ?.*? CERTIFICATE-----$")
+                           last)]
+    (or extracted-data base64-cert-data)))
+
+(defn base64->certificate
+  [base64-cert-data]
+  (let [data (extract-cert-data base64-cert-data)]
+    (with-open [stream (ByteArrayInputStream. (ssl/base64->binary data))]
+      (.generateCertificate ssl/x509-cert-factory stream))))
+
 (defn load-certificate ^Certificate [{:keys [cert-file cert-data]}]
   (cond
     (some? cert-file) (ssl/load-certificate cert-file)
-    (some? cert-data) (with-open [stream (ByteArrayInputStream. (ssl/base64->binary cert-data))]
-                        (.generateCertificate ssl/x509-cert-factory stream))))
+    (some? cert-data) (base64->certificate cert-data)))
 
 (defn trust-store [cert]
   (doto (KeyStore/getInstance "JKS")
@@ -38,7 +50,7 @@
   (cond
     (some? cert-file) (ssl/load-certificate-chain cert-file)
     (some? cert-data) (with-open [stream (ByteArrayInputStream. (ssl/base64->binary cert-data))]
-                        (let [^"[Ljava.security.cert.Certificate;" ar (make-array Certificate 0)] 
+                        (let [^"[Ljava.security.cert.Certificate;" ar (make-array Certificate 0)]
                           (.toArray (.generateCertificates ssl/x509-cert-factory stream) ar)))))
 
 (defn key-store

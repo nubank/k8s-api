@@ -4,7 +4,8 @@
             [kubernetes-api.interceptors.auth.ssl :as auth.ssl]
             [matcher-combinators.standalone :refer [match?]]
             [matcher-combinators.test]
-            [mockfn.macros]))
+            [mockfn.macros]
+            [clojure.string :as string]))
 
 (deftest auth-test
   (testing "request with basic-auth"
@@ -33,3 +34,15 @@
                             :oauth-token "TOKEN"}}
                  ((:enter (interceptors.auth/new {:token   "TOKEN"
                                                   :ca-cert "/some/ca-cert.crt"})) {}))))))
+
+(deftest extract-cert-data-test
+  (testing "should extract data between header and footer"
+    (is (= "\nY2VydGlmaWNhdGUtYXV0aG9yaXR5LWRhdGEK\n"
+           (auth.ssl/extract-cert-data "-----BEGIN CERTIFICATE-----\nY2VydGlmaWNhdGUtYXV0aG9yaXR5LWRhdGEK\n-----END CERTIFICATE-----"))))
+
+  (testing "should keep same data if no header and footer"
+    (is (= "Y2VydGlmaWNhdGUtYXV0aG9yaXR5LWRhdGEK"
+           (auth.ssl/extract-cert-data "Y2VydGlmaWNhdGUtYXV0aG9yaXR5LWRhdGEK"))))
+
+  (testing "no op if empty string"
+    (is (string/blank? (auth.ssl/extract-cert-data "")))))
