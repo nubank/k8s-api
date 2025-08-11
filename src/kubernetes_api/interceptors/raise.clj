@@ -58,6 +58,5 @@
 (defn new [_]
   {:name  ::raise
    :leave (fn [{:keys [request response]}]
-            (with-meta
-              {:response (maybe-assoc-error response)}
-              {:response response :request request}))})
+            {:response (with-meta (maybe-assoc-error response)
+                                  {:response response :request request})})})

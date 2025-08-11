@@ -20,4 +20,6 @@
   :profiles {:uberjar {:aot :all}
              :dev {:resource-paths ["test/kubernetes_api/resources"]
                    :dependencies [[nubank/matcher-combinators "3.8.5"]
-                                  [nubank/mockfn "0.7.0"]]}})
+                                  [nubank/mockfn "0.7.0"]]}
+             :crypto {:dependencies [[org.bouncycastle/bcprov-jdk15on "1.70"]
+                                     [org.bouncycastle/bcpkix-jdk15on "1.70"]]}})

@@ -19,9 +19,10 @@
                    :response {:status 200
                               :body   {:my :body}}}
                   (meta
-                   (run-interceptor raise-interceptor {:request  {:my :request}
-                                                       :response {:status 200
-                                                                  :body   {:my :body}}})))))
+                   (:response
+                    (run-interceptor raise-interceptor {:request  {:my :request}
+                                                        :response {:status 200
+                                                                   :body   {:my :body}}}))))))
 
     (testing "return an exception on 4XX responses"
       (is (match? (m/via (comp ex-data :kubernetes-api.core/error :response)
