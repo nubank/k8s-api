@@ -1,5 +1,15 @@
 # Change Log
 
+## 1.0.1
+- Fix metadata response to match documentation
+```clojure
+(meta (k8s/invoke ...))
+;=>
+{:request ...
+ :response {:status ...
+            :body ...}}
+```
+
 ## 1.0.0
 - Add support for base64 secrets
 - [BREAKING] Remove CRDs by default, adds new `:apis` field.
