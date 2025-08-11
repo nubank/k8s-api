@@ -58,5 +58,7 @@
 (defn new [_]
   {:name  ::raise
    :leave (fn [{:keys [request response]}]
-            {:response (with-meta (maybe-assoc-error response)
-                                  {:response response :request request})})})
+            (let [metadata {:response response :request request}]
+              (with-meta
+                {:response (with-meta (maybe-assoc-error response) metadata)}
+                metadata)))})

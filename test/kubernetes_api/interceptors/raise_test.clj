@@ -14,7 +14,16 @@
       (is (match? {:response {:my :body}}
                   (run-interceptor raise-interceptor {:response {:status 200 :body {:my :body}}}))))
 
-    (testing "should have the request/response on metadata"
+    (testing "should have the request/response on interceptor's output metadata"
+      (is (match? {:request  {:my :request}
+                   :response {:status 200
+                              :body   {:my :body}}}
+                  (meta
+                   (run-interceptor raise-interceptor {:request  {:my :request}
+                                                       :response {:status 200
+                                                                  :body   {:my :body}}})))))
+
+    (testing "should have the request/response on response's metadata"
       (is (match? {:request  {:my :request}
                    :response {:status 200
                               :body   {:my :body}}}
