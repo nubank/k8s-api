@@ -1,7 +1,8 @@
 (ns kubernetes-api.internals.client
   (:require [camel-snake-kebab.core :as csk]
             [clojure.string :as string]
-            [kubernetes-api.misc :as misc]))
+            [kubernetes-api.misc :as misc]
+            [kubernetes-api.internals.meta :as meta]))
 
 (defn pascal-case-routes [k8s]
   (update k8s :handlers
@@ -89,6 +90,15 @@
                       (= (boolean all-namespaces?) (all-namespaces-route? (:route-name handler))))))
        (map :route-name)))
 
+(defn find-handler [k8s {:keys [all-namespaces?] :as _search-params
+                       search-kind :kind
+                       search-action :action}]
+  (->> (:handlers k8s)
+       (filter (fn [handler]
+                 (and (or (= (keyword search-kind) (kind handler)) (nil? search-kind))
+                      (or (= (keyword search-action) (action handler)) (nil? search-action))
+                      (= (boolean all-namespaces?) (all-namespaces-route? (:route-name handler))))))))
+
 (defn version-of [k8s route-name]
   (->> (swagger-definition-for-route k8s route-name)
        :x-kubernetes-group-version-kind
@@ -129,8 +139,100 @@
        (filter (fn [x] (not (string/ends-with? (name x) "Status"))))
        ((partial choose-preffered-version k8s))))
 
+
 (defn preffered-version? [k8s handler]
   (let [preffered-route (find-preferred-route k8s {:kind   (handler-kind handler)
                                                    :action (handler-action handler)})]
     (and (= (handler-version handler) (version-of k8s preffered-route))
          (= (handler-group handler) (group-of k8s preffered-route)))))
+
+(defn k8s-version-pattern [s]
+  (when (seq s)
+    (when-let [groups (re-matches #"^v(\d+)(alpha|beta|)(\d*)$" s)]
+      {:raw s :ga (Integer/parseInt (nth groups 1)) :channel (nth groups 2) :postversion (when (seq (nth groups 3)) (Integer/parseInt (nth groups 3)))})))
+
+(defn compare-channel [a b] 
+  (let [channels {"alpha" 2 "beta" 1 "" 0}] 
+    (compare (get channels a 3) (get channels b 3))))
+
+(defn compare-k8s-versions [a b]
+  (let [k8s-a (k8s-version-pattern a)
+        k8s-b (k8s-version-pattern b)]
+    (cond 
+      (and (nil? k8s-a) (not (nil? k8s-b)))
+      1
+
+      (and (not (nil? k8s-a)) (nil? k8s-b))
+      -1
+
+      (and (nil? k8s-a) (nil? k8s-b))
+      (compare a b)
+
+      (not= (:channel k8s-a) (:channel k8s-b))
+      (compare-channel (:channel k8s-a) (:channel k8s-b))
+
+
+      (not= (:ga k8s-a) (:ga k8s-b))
+      (compare (:ga k8s-b) (:ga k8s-a))
+
+
+      :else (compare (:postversion k8s-a) (:postversion k8s-b)))))
+
+(defn compare-group [k8s a b]
+  (letfn [(preffered-version-of [group]
+                                (->> (all-versions k8s)
+                                     (some #(= (:name %) group))
+                                     :prefferedVersion
+                                     :version))]
+    (compare-k8s-versions (preffered-version-of a) (preffered-version-of b))))
+
+(defn compare-handler-version [k8s a b]
+  (cond
+    (not= (handler-group a) (handler-group b))
+    (compare-group k8s (handler-group a) (handler-group b))
+
+    (and (preffered-version? k8s a) (preffered-version? k8s b))
+    (compare-k8s-versions (handler-version a) (handler-version b))
+
+    (preffered-version? k8s a)
+    -1
+
+    (preffered-version? k8s b)
+    1
+
+    :else
+    (compare-k8s-versions (handler-version a) (handler-version b))))
+
+(defn kind-handlers [k8s kind]
+  (->> (:handlers k8s)
+       (filter (fn [handler] (= kind (kind handler))))
+       (sort compare-handler-version)))
+
+(defn kind-handler [k8s kind] 
+  (first (kind-handlers k8s kind)))
+
+
+(defn from-api-version? [api handler]
+  (let [{:keys [group version]} (meta/group-version api)] 
+    (and (= group (handler-group handler))
+         (= version (handler-version handler)))))
+
+(defn find-explicit-api-route [k8s api search-params]
+  (->> (find-route k8s search-params)
+       (filter (partial from-api-version? api))
+       first))
+
+(defn find-version-priority-handler [k8s search-params] 
+  (->> (find-handler k8s search-params)
+       (filter (fn [x] (not (string/ends-with? (name (:route-name x)) "Status"))))
+       (sort (partial compare-handler-version k8s))
+       first))
+
+(defn find-version-priority-route [k8s search-params]
+  (:route-name (find-version-priority-handler k8s search-params)))
+
+(defn select-route [k8s search-params]
+  (if-let [api (or (:api search-params)
+                   (get-in search-params [:request :apiVersion]))]
+    (find-explicit-api-route k8s api search-params)
+    (find-version-priority-route k8s search-params)))
