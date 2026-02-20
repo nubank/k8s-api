@@ -113,7 +113,7 @@
                 :request {:namespace \"default\"
                           :body {:apiVersion \"v1\", ...}})"
   [k8s {:keys [request] :as params}]
-  (if-let [action (internals.client/find-preferred-route k8s (dissoc params :request))]
+  (if-let [action (internals.client/select-route k8s (dissoc params :request))]
     (internals.martian/response-for k8s action (or request {}))
     (throw (ex-info "Could not find action" {:search (dissoc params :request)}))))
 
@@ -148,12 +148,13 @@
     => [:Deployment
          [:create \"description\"]
          ...]"
-  ([{:keys [handlers] :as k8s}]
-   (->> (filter (partial internals.client/preffered-version? k8s) handlers)
-        (group-by internals.client/kind)
+  ([{:keys [handlers] :as _k8s}]
+   (->> (group-by internals.client/kind handlers)
         (map (fn [[kind handlers]]
                (vec (cons (keyword kind)
-                          (mapv (juxt internals.client/action :summary) handlers)))))
+                          (mapv (fn [[action handlers]]
+                                  (vector action (some :summary handlers)))
+                                (group-by internals.client/action handlers))))))
         (sort-by (comp str first))
         vec))
   ([k8s kind]
@@ -166,7 +167,7 @@
     mostly for debugging. For customizing this, use the :interceptors option
     while creating an client"
   [k8s {:keys [request] :as params}]
-  (if-let [action (internals.client/find-preferred-route k8s (dissoc params :request))]
+  (if-let [action (internals.client/select-route k8s (dissoc params :request))]
     (martian/request-for k8s action (or request {}))
     (throw (ex-info "Could not find action" {:search (dissoc params :request)}))))
 
@@ -174,4 +175,4 @@
   "Returns everything on a specific action, including request and response
     schemas"
   [k8s params]
-  (martian/explore k8s (internals.client/find-preferred-route k8s (dissoc params :request))))
+  (martian/explore k8s (internals.client/select-route k8s (dissoc params :request))))

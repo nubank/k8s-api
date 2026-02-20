@@ -223,3 +223,80 @@
                                                                         :x-kubernetes-group-version-kind {:group   "fruits"
                                                                                                           :version "v1alpha1"
                                                                                                           :kind    "Orange"}}})))))
+
+
+(deftest compare-handler-version-test
+  (let [k8s-client {:kubernetes-api.core/core-api-versions {:versions []} 
+                    :kubernetes-api.core/api-group-list {:groups [{:name "fruits.group.dev"
+                                                                   :versions [{:groupVersion "fruits.group.dev/v2" :version "v2"}
+                                                                              {:groupVersion "fruits.group.dev/v2beta1"  :version "v2beta1"}
+                                                                              {:groupVersion "fruits.group.dev/v1" :version "v1"}
+                                                                              {:groupVersion "fruits.group.dev/v1alpha2" :version "v1beta1"}
+                                                                              {:groupVersion "fruits.group.dev/v1alpha1" :version "v1alpha1"}]
+                                                                   :preferredVersion {:groupVersion "fruits.group.dev/v1" :version "v1"}}]}}]
+    
+    (testing "when both are preffered version within same group, consider it equal"
+      (let [a {:route-name         :CreateV1Orange
+               :swagger-definition {:x-kubernetes-action             "create"
+                                    :x-kubernetes-group-version-kind {:group   "fruits.group.dev"
+                                                                      :version "v1"
+                                                                      :kind    "Orange"}}}
+            b {:route-name         :UpdateV1Orange
+               :swagger-definition {:x-kubernetes-action             "update"
+                                    :x-kubernetes-group-version-kind {:group   "fruits.group.dev"
+                                                                      :version "v1"
+                                                                      :kind    "Orange"}}}]
+        (is (zero? (internals.client/compare-handler-version (assoc k8s-client :handlers [a b]) a b)))))
+    
+(testing "when both are not preffered version within same group, consider it based on version priority -- GA should come first"
+      (let [a {:route-name         :CreateV1Orange
+               :swagger-definition {:x-kubernetes-action             "create"
+                                    :x-kubernetes-group-version-kind {:group   "fruits.group.dev"
+                                                                      :version "v2"
+                                                                      :kind    "Orange"}}}
+            b {:route-name         :UpdateV1Orange
+               :swagger-definition {:x-kubernetes-action             "update"
+                                    :x-kubernetes-group-version-kind {:group   "fruits.group.dev"
+                                                                      :version "v2beta1"
+                                                                      :kind    "Orange"}}}]
+        (is (< (internals.client/compare-handler-version (assoc k8s-client :handlers [a b]) a b) 0))))
+
+(testing "when both are not preffered version within same group, consider it based on version priority -- beta should come first than alpha"
+      (let [a {:route-name         :CreateV1Orange
+               :swagger-definition {:x-kubernetes-action             "create"
+                                    :x-kubernetes-group-version-kind {:group   "fruits.group.dev"
+                                                                      :version "v1beta1"
+                                                                      :kind    "Orange"}}}
+            b {:route-name         :UpdateV1Orange
+               :swagger-definition {:x-kubernetes-action             "update"
+                                    :x-kubernetes-group-version-kind {:group   "fruits.group.dev"
+                                                                      :version "v1alpha1"
+                                                                      :kind    "Orange"}}}]
+        (is (< (internals.client/compare-handler-version (assoc k8s-client :handlers [a b]) a b) 0))))
+    ))
+    
+
+(deftest compare-k8s-versions-test
+  (testing "sorting"
+    (is (match?
+         ["v2"
+          "v1"
+          "v3beta1"
+          "v2beta1"
+          "v1beta1"
+          "v4alpha1"
+          "v1alpha1"
+          "foo1" 
+          "foo10"]
+         (sort internals.client/compare-k8s-versions 
+               ["v1alpha1" 
+                "v1beta1"
+                "v1" 
+                "v2beta1" 
+                "v3beta1" 
+                "v4alpha1"
+                "v2" 
+                "foo1" 
+                "foo10"])))))
+
+
