@@ -13,12 +13,12 @@ We had a good experience with
 
 ### clojure.deps
 ```clojure
-{:deps {nubank/k8s-api {:mvn/version "1.0.0"}}}
+{:deps {nubank/k8s-api {:mvn/version "1.1.0"}}}
 ```
 
 ### Leiningen
 ```clojure
-[nubank/k8s-api "1.0.0"]
+[nubank/k8s-api "1.1.0"]
 ```
 
 ```clojure

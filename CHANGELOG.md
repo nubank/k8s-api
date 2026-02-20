@@ -1,5 +1,8 @@
 # Change Log
 
+## 1.1.0 
+- fix: use kind for old version
+
 ## 1.0.0
 - Add support for base64 secrets
 - [BREAKING] Remove CRDs by default, adds new `:apis` field.
