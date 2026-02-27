@@ -14,4 +14,4 @@
 
 
 (defn new []
-  (martian.interceptors/encode-body (default-encoders)))
+  (martian.interceptors/encode-request (default-encoders)))
