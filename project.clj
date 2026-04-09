@@ -7,7 +7,8 @@
             [lein-kibit "0.1.6"]
             [lein-nsorg "0.2.0"]]
   :cljfmt {:indents {providing [[:inner 0]]}}
-  :dependencies [[org.clojure/clojure "1.11.0"]
+  :dependencies [[org.clojure/clojure "1.11.0"] 
+                 [clj-commons/clj-yaml "1.0.29"]
                  [com.github.oliyh/martian "0.1.26"]
                  [com.github.oliyh/martian-httpkit "0.1.26"]
                  [less-awful-ssl "1.0.6"]
