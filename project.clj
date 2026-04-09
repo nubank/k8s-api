@@ -12,6 +12,7 @@
                  [com.github.oliyh/martian "0.1.26"]
                  [com.github.oliyh/martian-httpkit "0.1.26"]
                  [less-awful-ssl "1.0.6"]
+                 [org.bouncycastle/bcpkix-jdk18on "1.79"]
                  [http-kit/http-kit "2.8.0-alpha3"]]
   :main ^:skip-aot kubernetes-api.core
   :resource-paths ["resources"]

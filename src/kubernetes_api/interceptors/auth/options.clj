@@ -1,7 +1,8 @@
 (ns kubernetes-api.interceptors.auth.options)
 
-(defn ca-cert? [{:keys [ca-cert certificate-authority-data]}]
+(defn ca-cert? [{:keys [ca-cert certificate-authority certificate-authority-data]}]
   (or (some? ca-cert)
+      (some? certificate-authority)
       (some? certificate-authority-data)))
 
 (defn client-cert? [{:keys [client-cert client-certificate-data]}]

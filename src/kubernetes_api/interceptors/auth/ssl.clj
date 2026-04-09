@@ -1,14 +1,14 @@
 (ns kubernetes-api.interceptors.auth.ssl
-  (:require [clojure.string :as str]
-            [less.awful.ssl :as ssl])
-  (:import (java.io ByteArrayInputStream)
+  (:require [less.awful.ssl :as ssl])
+  (:import (java.io ByteArrayInputStream StringReader)
            (java.nio.charset StandardCharsets)
            (java.security KeyStore)
-           (java.security.spec PKCS8EncodedKeySpec)
            (java.security.cert Certificate)
-           (javax.net.ssl SSLContext
-                          TrustManager
-                          KeyManager)))
+           (javax.net.ssl SSLContext TrustManager KeyManager)
+           (org.bouncycastle.asn1.pkcs PrivateKeyInfo)
+           (org.bouncycastle.openssl PEMKeyPair PEMParser)
+           (org.bouncycastle.jce.provider BouncyCastleProvider)
+           (org.bouncycastle.openssl.jcajce JcaPEMKeyConverter)))
 
 (defn load-certificate ^Certificate [{:keys [cert-file cert-data]}]
   (cond
@@ -21,44 +21,21 @@
     (.load nil nil)
     (.setCertificateEntry "cacert" (load-certificate cert))))
 
-(defn- der-length ^bytes [n]
-  (if (< n 0x80)
-    (byte-array [n])
-    (let [octets (loop [n n acc []]
-                   (if (zero? n)
-                     acc
-                     (recur (unsigned-bit-shift-right n 8) (cons (bit-and n 0xff) acc))))]
-      (byte-array (cons (bit-or 0x80 (count octets)) octets)))))
+(defn- pem-str->private-key [^String pem-str]
+  (with-open [reader (StringReader. pem-str)]
+    (let [obj  (.readObject (PEMParser. reader))
+          conv (-> (JcaPEMKeyConverter.) (.setProvider (BouncyCastleProvider.)))]
+      (if (instance? PEMKeyPair obj)
+        (-> (.getKeyPair conv ^PEMKeyPair obj) .getPrivate)
+        (.getPrivateKey conv ^PrivateKeyInfo obj)))))
 
-(defn- der-tlv ^bytes [tag ^bytes value]
-  (byte-array (concat [(int tag)] (der-length (alength value)) value)))
-
-(defn- pkcs1->pkcs8 ^bytes [^bytes pkcs1-der]
-  ;; Wrap a PKCS#1 RSA key in a PKCS#8 AlgorithmIdentifier envelope so that
-  ;; PKCS8EncodedKeySpec can parse it.
-  ;; RSA OID: 1.2.840.113549.1.1.1
-  (let [rsa-oid  (byte-array [0x06 0x09 0x2a 0x86 0x48 0x86 0xf7 0x0d 0x01 0x01 0x01])
-        null-val (byte-array [0x05 0x00])
-        alg-id   (der-tlv 0x30 (byte-array (concat rsa-oid null-val)))
-        version  (byte-array [0x02 0x01 0x00])
-        key-os   (der-tlv 0x04 pkcs1-der)]
-    (der-tlv 0x30 (byte-array (concat version alg-id key-os)))))
-
-(defn base64->private-key
-  [base64-private-key]
-  (let [pem-str   (String. (ssl/base64->binary base64-private-key) StandardCharsets/UTF_8)
-        pkcs1?    (str/includes? pem-str "BEGIN RSA PRIVATE KEY")
-        der-bytes (->> pem-str
-                       (re-find #"(?ms)^-----BEGIN ?.*? PRIVATE KEY-----$(.+)^-----END ?.*? PRIVATE KEY-----$")
-                       last
-                       ssl/base64->binary)]
-    (->> (if pkcs1? (pkcs1->pkcs8 der-bytes) der-bytes)
-         PKCS8EncodedKeySpec.
-         (.generatePrivate ssl/rsa-key-factory))))
+(defn base64->private-key [base64-private-key]
+  (-> (String. (ssl/base64->binary base64-private-key) StandardCharsets/UTF_8)
+      pem-str->private-key))
 
 (defn private-key [{:keys [key key-data]}]
   (cond
-    (some? key)      (ssl/private-key key)
+    (some? key)      (-> (slurp key) pem-str->private-key)
     (some? key-data) (base64->private-key key-data)))
 
 (defn ^"[Ljava.security.cert.Certificate;" load-certificate-chain
@@ -88,12 +65,12 @@
               nil))))
 
 (defn client-certs->ssl-engine
-  [{:keys [ca-cert certificate-authority-data client-cert client-certificate-data client-key client-key-data]}]
+  [{:keys [ca-cert certificate-authority certificate-authority-data client-cert client-certificate-data client-key client-key-data]}]
   (let [key {:key client-key
              :key-data client-key-data}
         cert {:cert-file client-cert
               :cert-data client-certificate-data}
-        ca-crt {:cert-file ca-cert
+        ca-crt {:cert-file (or ca-cert certificate-authority)
                 :cert-data certificate-authority-data}]
     (ssl/ssl-context->engine
      (client-certs->ssl-context key cert ca-crt))))
@@ -103,7 +80,7 @@
        (.init nil (into-array TrustManager [(less.awful.ssl/trust-manager (trust-store cert))]) nil)))
 
 (defn ca-cert->ssl-engine
-  [{:keys [ca-cert certificate-authority-data]}]
+  [{:keys [ca-cert certificate-authority certificate-authority-data]}]
   (ssl/ssl-context->engine
-   (ca-cert->ssl-context {:cert-file ca-cert
+   (ca-cert->ssl-context {:cert-file (or ca-cert certificate-authority)
                           :cert-data certificate-authority-data})))

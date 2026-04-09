@@ -20,7 +20,8 @@
     (when (and (some? context) (some? cluster-info) (some? user-info))
       {:cluster cluster-info
        :user user-info
-       :context context})))
+       :context context
+       ::kubeconfig-file (::kubeconfig-file kubeconfig)})))
 
 (defn kubeconfig-files [kubeconfig]
   (let [kubeconfig-input (or kubeconfig
@@ -33,7 +34,8 @@
 
 (defn- kubeconfig-data [kubeconfig]
   (->> (kubeconfig-files kubeconfig)
-       (mapv (fn [kubeconfig-file] (yaml/parse-string (slurp kubeconfig-file))))))
+       (mapv (fn [kubeconfig-file] (assoc (yaml/parse-string (slurp kubeconfig-file))
+                                          ::kubeconfig-file kubeconfig-file)))))
 
 
 (defn context

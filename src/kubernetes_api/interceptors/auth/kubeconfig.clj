@@ -2,9 +2,12 @@
   (:require
     [cheshire.core :as json]
     [kubernetes-api.interceptors.auth.options :as auth.options]
+    [kubernetes-api.loader.kubeconfig :as loader.kubeconfig]
     [clojure.java.shell :as sh]
     [tripod.log :as log]
-    [clojure.string :as string]))
+    [clojure.java.io :as io]
+    [clojure.string :as string])
+  (:import (java.nio.file Paths)))
 
 (defn env-var-map
   [env]
@@ -78,21 +81,30 @@
   "Returns a map of authentication options based on the context info.
    This options should be used to instantiate a kubernetes-api.core/client."
   [{:keys [user cluster] :as context-info}]
-  (cond 
-    (and (auth.options/client-cert-key-pair? user)
-         (auth.options/ca-cert? cluster)) 
-    (select-keys (merge user cluster) [:client-cert :client-certificate-data :client-key :client-key-data :ca-cert :certificate-authority-data])
+  (merge
+   (when (and (auth.options/ca-cert? cluster)
+              (not (auth.options/client-cert-key-pair? user)))
+     (update (select-keys cluster [:certificate-authority :certificate-authority-data])
+             :certificate-authority (fn [ca-cert] 
+                                      (when (some? ca-cert)
+                                        (if (.isAbsolute (io/file ca-cert))
+                                          ca-cert
+                                          (.getAbsolutePath (io/file (.getParent (::loader.kubeconfig/kubeconfig-file context-info)) ca-cert)))))))
+   (cond 
+     (and (auth.options/client-cert-key-pair? user)
+          (auth.options/ca-cert? cluster))
+     (select-keys (merge user cluster) [:client-cert :client-certificate-data :client-key :client-key-data :ca-cert :certificate-authority :certificate-authority-data])
 
-    (auth.options/token? user)
-    (select-keys user [:token])
+     (auth.options/token? user)
+     (select-keys user [:token])
 
-    (auth.options/token-file? {:token-file (:tokenFile user)})
-    {:token-fn (fn [] (string/trim-newline (slurp (:tokenFile user))))}
+     (auth.options/token-file? {:token-file (:tokenFile user)})
+     {:token-fn (fn [] (string/trim-newline (slurp (:tokenFile user))))}
 
-    (auth.options/basic-auth? user)
-    (select-keys user [:username :password])
+     (auth.options/basic-auth? user)
+     (select-keys user [:username :password])
 
-    (auth.options/exec? user)
-    {:auth-fn (credentials-fn (new-exec-runner context-info))}
+     (auth.options/exec? user)
+     {:auth-fn (credentials-fn (new-exec-runner context-info))}
 
-    :else {}))
+     :else {})))
