@@ -1,6 +1,8 @@
 (ns kubernetes-api.interceptors.auth.ssl
-  (:require [less.awful.ssl :as ssl])
+  (:require [clojure.string :as str]
+            [less.awful.ssl :as ssl])
   (:import (java.io ByteArrayInputStream)
+           (java.nio.charset StandardCharsets)
            (java.security KeyStore)
            (java.security.spec PKCS8EncodedKeySpec)
            (java.security.cert Certificate)
@@ -19,14 +21,40 @@
     (.load nil nil)
     (.setCertificateEntry "cacert" (load-certificate cert))))
 
+(defn- der-length ^bytes [n]
+  (if (< n 0x80)
+    (byte-array [n])
+    (let [octets (loop [n n acc []]
+                   (if (zero? n)
+                     acc
+                     (recur (unsigned-bit-shift-right n 8) (cons (bit-and n 0xff) acc))))]
+      (byte-array (cons (bit-or 0x80 (count octets)) octets)))))
+
+(defn- der-tlv ^bytes [tag ^bytes value]
+  (byte-array (concat [(int tag)] (der-length (alength value)) value)))
+
+(defn- pkcs1->pkcs8 ^bytes [^bytes pkcs1-der]
+  ;; Wrap a PKCS#1 RSA key in a PKCS#8 AlgorithmIdentifier envelope so that
+  ;; PKCS8EncodedKeySpec can parse it.
+  ;; RSA OID: 1.2.840.113549.1.1.1
+  (let [rsa-oid  (byte-array [0x06 0x09 0x2a 0x86 0x48 0x86 0xf7 0x0d 0x01 0x01 0x01])
+        null-val (byte-array [0x05 0x00])
+        alg-id   (der-tlv 0x30 (byte-array (concat rsa-oid null-val)))
+        version  (byte-array [0x02 0x01 0x00])
+        key-os   (der-tlv 0x04 pkcs1-der)]
+    (der-tlv 0x30 (byte-array (concat version alg-id key-os)))))
+
 (defn base64->private-key
   [base64-private-key]
-(->> (String. (ssl/base64->binary base64-private-key) java.nio.charset.StandardCharsets/UTF_8)
-    (re-find #"(?ms)^-----BEGIN ?.*? PRIVATE KEY-----$(.+)^-----END ?.*? PRIVATE KEY-----$")
-    last
-    ssl/base64->binary
-    PKCS8EncodedKeySpec.
-    (.generatePrivate ssl/rsa-key-factory)))
+  (let [pem-str   (String. (ssl/base64->binary base64-private-key) StandardCharsets/UTF_8)
+        pkcs1?    (str/includes? pem-str "BEGIN RSA PRIVATE KEY")
+        der-bytes (->> pem-str
+                       (re-find #"(?ms)^-----BEGIN ?.*? PRIVATE KEY-----$(.+)^-----END ?.*? PRIVATE KEY-----$")
+                       last
+                       ssl/base64->binary)]
+    (->> (if pkcs1? (pkcs1->pkcs8 der-bytes) der-bytes)
+         PKCS8EncodedKeySpec.
+         (.generatePrivate ssl/rsa-key-factory))))
 
 (defn private-key [{:keys [key key-data]}]
   (cond
