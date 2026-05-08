@@ -50,6 +50,30 @@ You can also define client certificates
                                          :client-key  "/some/path/client-java.key"}))
 ```
 
+### kubeconfig loader
+You can load configuration from a kubeconfig file, either by explicit setting it, or by setting the environment variable KUBECONFIG.
+It also supports multiple files
+
+```clojure
+(def k8s (->> (loader.kubeconfig/load-context
+                {:kubeconfig "/path/to/some/kubeconfig.yaml"
+                 :context "prod-xpto-000-context"})
+              (k8s/from-context)))
+
+; load from KUBECONFIG or defaulting to ~/.kube/config
+(def k8s (->> (loader.kubeconfig/load-context
+                {:context "prod-xpto-000-context"})
+              (k8s/from-context)))
+
+; load multiple files. It will find the first context that matches.
+(def k8s (->> (loader.kubeconfig/load-context
+                {:kubeconfig ["/path/to/some/kubeconfig.yaml"
+                              "/path/to/another/kubeconfig.yaml"]
+                 :context "prod-xpto-000-context"})
+              (k8s/from-context)))
+```
+
+
 #### OpenAPI config
 
 ##### Discovery

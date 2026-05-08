@@ -1,6 +1,7 @@
 (ns kubernetes-api.core
   (:require [kubernetes-api.extensions.custom-resource-definition :as crd]
             [kubernetes-api.interceptors.auth :as interceptors.auth]
+            [kubernetes-api.interceptors.auth.kubeconfig :as auth.kubeconfig]
             [kubernetes-api.interceptors.encoders :as interceptors.encoders]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [kubernetes-api.internals.client :as internals.client]
@@ -98,6 +99,18 @@
     (assoc k8s
            ::api-group-list (internals.martian/response-for k8s :GetApiVersions)
            ::core-api-versions (internals.martian/response-for k8s :GetCoreApiVersions))))
+
+
+(defn from-context 
+  "Creates a client from a context info
+
+   context-info is a map with the following keys:
+     :context - has info about the :cluster and :user names, and potentially :namespace
+     :cluster - has :server, and potentially certificate authority
+     :user -    has authentication strategy"
+  [context-info]
+  (client (:server (:cluster context-info))
+          (auth.kubeconfig/auth-options context-info)))
 
 (defn invoke
   "Invoke a action on kubernetes api
