@@ -3,6 +3,7 @@
             [kubernetes-api.interceptors.auth :as interceptors.auth]
             [kubernetes-api.interceptors.auth.kubeconfig :as auth.kubeconfig]
             [kubernetes-api.interceptors.encoders :as interceptors.encoders]
+            [kubernetes-api.interceptors.http-client :as interceptors.http-client]
             [kubernetes-api.interceptors.raise :as interceptors.raise]
             [kubernetes-api.internals.client :as internals.client]
             [kubernetes-api.internals.martian :as internals.martian]
@@ -84,7 +85,8 @@
             :apis [:some.api/v1alpha1, :another.api/v1beta1]})"
   [host opts]
   (let [opts         (merge defaults opts)
-        interceptors (concat [(interceptors.raise/new opts)
+        interceptors (concat [(interceptors.http-client/new opts)
+                              (interceptors.raise/new opts)
                               (interceptors.auth/new opts)]
                              (:interceptors opts)
                              martian/default-interceptors
