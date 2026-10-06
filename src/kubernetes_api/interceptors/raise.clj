@@ -36,10 +36,16 @@
 
 (def ^:private status-code->error-type (zipmap (vals error-type->status-code) (keys error-type->status-code)))
 
+(defn- error-response [response]
+  ;; Request options contain credentials and TLS objects that cannot be logged safely.
+  (let [headers (select-keys (:headers response) [:audit-id :retry-after :content-type])]
+    (cond-> (select-keys response [:status :body])
+      (seq headers) (assoc :headers headers))))
+
 (defn- make-exception [{:keys [status] :as response}]
   (ex-info (str "APIServer error: " status)
            {:type (status-code->error-type status)
-            :response response}))
+            :response (error-response response)}))
 
 (defn check-response
   "Checks the status code. If 400+, raises an exception, returns body otherwise"
