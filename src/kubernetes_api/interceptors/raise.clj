@@ -1,4 +1,5 @@
-(ns kubernetes-api.interceptors.raise)
+(ns kubernetes-api.interceptors.raise
+  (:require [clojure.string :as string]))
 
 (defn- status-error? [status]
   (or (nil? status) (>= status 400)))
@@ -36,11 +37,20 @@
 
 (def ^:private status-code->error-type (zipmap (vals error-type->status-code) (keys error-type->status-code)))
 
+(def ^:private sensitive-response-headers
+  #{"authorization" "proxy-authorization" "cookie" "set-cookie" "x-nu-svc-auth"})
+
+(defn- redact-response-headers [headers]
+  (reduce-kv (fn [headers header _value]
+               (if (contains? sensitive-response-headers (string/lower-case (name header)))
+                 (assoc headers header "redacted")
+                 headers))
+             headers headers))
+
 (defn- error-response [response]
   ;; Request options contain credentials and TLS objects that cannot be logged safely.
-  (let [headers (select-keys (:headers response) [:audit-id :retry-after :content-type])]
-    (cond-> (select-keys response [:status :body])
-      (seq headers) (assoc :headers headers))))
+  (cond-> (dissoc response :opts)
+    (:headers response) (update :headers redact-response-headers)))
 
 (defn- make-exception [{:keys [status] :as response}]
   (ex-info (str "APIServer error: " status)
